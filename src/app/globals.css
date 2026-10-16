@@ -1,30 +1,32 @@
 @import "tailwindcss";
 
-/* Ledger palette: green ink on sage paper, marigold reserved for "most money delivered",
-   coral for the hidden exchange-rate margin. */
+/* Navy ink on white. Jade marks the best deal; raspberry marks money lost.
+   No warm tones anywhere. */
 :root {
-  --paper: #eef2ec;
-  --surface: #fbfcf9;
-  --ink: #0e2a22;
-  --muted: #56675f;
-  --line: #c9d3cc;
-  --gold: #e3a01b;
-  --gold-text: #8a5a00;
-  --margin: #c4513a;
-  --fee: #7f978e;
+  --paper: #ffffff;
+  --surface: #f2f5f9;
+  --ink: #0b1f3a;
+  --muted: #5a6880;
+  --line: #dde3ec;
+  --accent: #12a37f;
+  --accent-text: #0b7a5e;
+  --loss: #c8204e;
+  --loss-soft: #ff8aa8;
+  --fee: #8a97ab;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #0f1a16;
-    --surface: #15241f;
-    --ink: #e4ede8;
-    --muted: #94a69e;
-    --line: #2a3b34;
-    --gold: #f0b43f;
-    --gold-text: #f0b43f;
-    --margin: #e27a62;
-    --fee: #6f877f;
+    --paper: #08121f;
+    --surface: #0f1d30;
+    --ink: #e6edf7;
+    --muted: #93a2b8;
+    --line: #1f3048;
+    --accent: #2fd3a4;
+    --accent-text: #2fd3a4;
+    --loss: #ff6f91;
+    --loss-soft: #ff8aa8;
+    --fee: #6c7b91;
   }
 }
 
@@ -34,18 +36,19 @@
   --color-ink: var(--ink);
   --color-muted: var(--muted);
   --color-line: var(--line);
-  --color-gold: var(--gold);
-  --color-gold-text: var(--gold-text);
-  --color-margin: var(--margin);
+  --color-accent: var(--accent);
+  --color-accent-text: var(--accent-text);
+  --color-loss: var(--loss);
+  --color-loss-soft: var(--loss-soft);
   --color-fee: var(--fee);
-  --font-sans: var(--font-public-sans);
-  --font-display: var(--font-bricolage);
+  --font-sans: var(--font-red-hat-text);
+  --font-display: var(--font-red-hat-display);
 }
 
 body {
   background: var(--paper);
   color: var(--ink);
-  font-family: var(--font-public-sans), system-ui, sans-serif;
+  font-family: var(--font-red-hat-text), system-ui, sans-serif;
 }
 
 .tabular {
@@ -70,6 +73,6 @@ body {
 }
 
 :focus-visible {
-  outline: 2px solid var(--gold);
+  outline: 2px solid var(--accent);
   outline-offset: 3px;
 }

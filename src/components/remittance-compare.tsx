@@ -8,7 +8,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { AnimatedNumber } from "@/components/animated-number";
 import { Odometer } from "@/components/odometer";
 import type { Country, Provider } from "@/lib/api";
-import { currencySymbol, duration, money, percent, rate } from "@/lib/format";
+import { currencySymbol, duration, money, rate } from "@/lib/format";
 import { type RankedQuote, rankQuotes } from "@/lib/remittance";
 import { sampleMidRate, sampleQuotes } from "@/lib/sample-quotes";
 
@@ -70,6 +70,8 @@ export function RemittanceCompare({ sending, receiving, providers }: Props) {
     () => {
       const state = flipState.current;
       flipState.current = null;
+      // The list isn't rendered while the amount is empty or no provider qualifies.
+      if (!list.current) return;
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
       if (state) {
         Flip.from(state, {
@@ -84,28 +86,43 @@ export function RemittanceCompare({ sending, receiving, providers }: Props) {
             ),
         });
       }
-      // Leak: each provider's losses pour into its bar, fee first, then the hidden margin.
-      const rows = gsap.utils.toArray<HTMLElement>("[data-flip-id]", list.current);
+      // Race: markers run from the start line to where each provider finishes,
+      // staggered by rank. Distance left to the finish line is money lost.
+      const rows = gsap.utils.toArray<HTMLElement>(
+        "[data-flip-id]",
+        list.current,
+      );
       rows.forEach((row, i) => {
-        gsap
-          .timeline({ delay: 0.35 + i * 0.12 })
-          .fromTo(
-            row.querySelector("[data-seg=fee]"),
-            { scaleX: 0 },
-            { scaleX: 1, duration: 0.45, ease: "power2.in" },
-          )
-          .fromTo(
-            row.querySelector("[data-seg=margin]"),
-            { scaleX: 0 },
-            { scaleX: 1, duration: 0.9, ease: "power3.out" },
-          )
-          .fromTo(
-            row.querySelector("[data-drip]"),
-            { y: -4, autoAlpha: 1, scale: 1 },
-            { y: 14, autoAlpha: 0, scale: 0.4, duration: 0.6, ease: "power2.in" },
-            "-=0.35",
-          );
+        const x = row.dataset.x ?? "0";
+        const opts = {
+          duration: 1.25,
+          ease: "power3.out",
+          delay: 0.25 + i * 0.09,
+        };
+        gsap.fromTo(
+          row.querySelector("[data-fill]"),
+          { width: "0%" },
+          { width: `${x}%`, ...opts },
+        );
+        gsap.fromTo(
+          row.querySelector("[data-dot]"),
+          { left: "0%" },
+          { left: `${x}%`, ...opts },
+        );
       });
+      const ring = list.current?.querySelector("[data-ring]");
+      if (ring)
+        gsap.fromTo(
+          ring,
+          { scale: 1, autoAlpha: 0.7 },
+          {
+            scale: 3.2,
+            autoAlpha: 0,
+            duration: 0.9,
+            ease: "power2.out",
+            delay: 1.4,
+          },
+        );
     },
     { dependencies: [order, corridorCode], scope: list },
   );
@@ -114,86 +131,88 @@ export function RemittanceCompare({ sending, receiving, providers }: Props) {
     (n: number) => money(n, receive.currency),
     [receive.currency],
   );
-  const maxCost = Math.max(
-    ...ranked.map((r) => r.feeCost + r.marginCost),
-    0.01,
+  const fmtLoss = useCallback(
+    (n: number) => `\u2212${money(n, receive.currency)}`,
+    [receive.currency],
   );
   const midPayout = amount > 0 ? amount * mid : 0;
+  // Track scale: the finish line is the mid-market payout; the worst provider shown sits
+  // about a quarter of the way along, so differences between providers stay visible.
+  const worstGap = Math.max(...ranked.map((r) => midPayout - r.netPayout), 0);
+  const span = Math.max(worstGap * 1.35, midPayout * 0.001, 0.01);
+  const trackX = (payout: number) =>
+    Math.min(100, Math.max(2, (1 - (midPayout - payout) / span) * 100));
   const best = ranked[0];
   const worst = ranked.at(-1);
 
   return (
-    <div className="flex flex-col gap-12">
-      <form
-        className="font-display text-[clamp(1.9rem,5.2vw,3.6rem)] leading-[1.15] font-semibold tracking-tight text-balance"
-        onSubmit={(e) => e.preventDefault()}
-      >
-        <label htmlFor="amount">Send </label>
-        <span className="inline-flex items-baseline border-b-[3px] border-ink">
-          <span aria-hidden>{currencySymbol(send.currency)}</span>
-          <input
-            id="amount"
-            inputMode="decimal"
-            autoComplete="off"
-            value={amountText}
-            onChange={(e) => {
+    <div className="grid gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:gap-14 xl:gap-20">
+      <div className="flex flex-col gap-8 lg:sticky lg:top-8 lg:self-start">
+        <form
+          className="font-display text-[clamp(1.9rem,5.2vw,3.6rem)] leading-[1.15] font-semibold tracking-tight text-balance lg:text-[clamp(2.2rem,3.4vw,3.4rem)]"
+          onSubmit={(e) => e.preventDefault()}
+        >
+          <label htmlFor="amount">Send </label>
+          <span className="inline-flex items-baseline border-b-[3px] border-ink">
+            <span aria-hidden>{currencySymbol(send.currency)}</span>
+            <input
+              id="amount"
+              inputMode="decimal"
+              autoComplete="off"
+              value={amountText}
+              onChange={(e) => {
+                capture();
+                setAmountText(e.target.value.replace(/[^\d.,]/g, ""));
+              }}
+              className="amount-input tabular bg-transparent outline-none"
+              style={
+                {
+                  "--len": Math.max(amountText.length, 1),
+                } as React.CSSProperties
+              }
+              aria-describedby="amount-help"
+            />
+          </span>{" "}
+          <label htmlFor="send">from</label>{" "}
+          <InlineSelect
+            id="send"
+            value={sendCode}
+            onChange={(v) => {
               capture();
-              setAmountText(e.target.value.replace(/[^\d.,]/g, ""));
+              setSendCode(v);
             }}
-            className="amount-input tabular bg-transparent outline-none"
-            style={
-              { "--len": Math.max(amountText.length, 1) } as React.CSSProperties
-            }
-            aria-describedby="amount-help"
+            options={sending.map((c) => ({
+              value: c.code,
+              label: SENDING_LABELS[c.code] ?? c.name,
+            }))}
+          />{" "}
+          <label htmlFor="receive">to</label>{" "}
+          <InlineSelect
+            id="receive"
+            value={receiveCode}
+            onChange={(v) => {
+              capture();
+              setReceiveCode(v);
+            }}
+            options={receiving.map((c) => ({ value: c.code, label: c.name }))}
           />
-        </span>{" "}
-        <label htmlFor="send">from</label>{" "}
-        <InlineSelect
-          id="send"
-          value={sendCode}
-          onChange={(v) => {
-            capture();
-            setSendCode(v);
-          }}
-          options={sending.map((c) => ({
-            value: c.code,
-            label: SENDING_LABELS[c.code] ?? c.name,
-          }))}
-        />{" "}
-        <label htmlFor="receive">to</label>{" "}
-        <InlineSelect
-          id="receive"
-          value={receiveCode}
-          onChange={(v) => {
-            capture();
-            setReceiveCode(v);
-          }}
-          options={receiving.map((c) => ({ value: c.code, label: c.name }))}
-        />
-        <p id="amount-help" className="sr-only">
-          Amount in {send.currency}
-        </p>
-      </form>
+          <p id="amount-help" className="sr-only">
+            Amount in {send.currency}
+          </p>
+        </form>
 
-      {best && amount > 0 && (
-        <BestDeal
-          best={best}
-          midPayout={midPayout}
-          sendCurrency={send.currency}
-          receiveCurrency={receive.currency}
-          receiveCountry={receive.name}
-          formatPayout={fmtReceive}
-        />
-      )}
+        {best && amount > 0 && (
+          <BestDeal
+            best={best}
+            midPayout={midPayout}
+            sendCurrency={send.currency}
+            receiveCurrency={receive.currency}
+            receiveCountry={receive.name}
+            formatPayout={fmtReceive}
+          />
+        )}
 
-      <section
-        aria-labelledby="results-heading"
-        className="flex flex-col gap-5"
-      >
         <div className="flex flex-col gap-1 border-l-[3px] border-line pl-4 text-sm text-muted sm:text-base">
-          <h2 id="results-heading" className="sr-only">
-            Best deals
-          </h2>
           <p>
             Mid-market rate:{" "}
             <span className="tabular font-medium text-ink">
@@ -206,35 +225,67 @@ export function RemittanceCompare({ sending, receiving, providers }: Props) {
               <span className="tabular font-medium text-ink">
                 {money(midPayout, receive.currency)}
               </span>
-              . Every provider below delivers less. The gap is what the transfer
+              . Every provider delivers less. The gap is what the transfer
               really costs you.
             </p>
           )}
         </div>
+      </div>
+
+      <section
+        aria-labelledby="results-heading"
+        className="flex flex-col gap-5"
+      >
+        <h2
+          id="results-heading"
+          className="text-sm font-medium text-muted sm:text-base"
+        >
+          {ranked.length > 0
+            ? `Top ${ranked.length} of ${servingCount} providers, ranked by what your recipient gets`
+            : "Providers on this route"}
+        </h2>
 
         {!(amount > 0) ? (
-          <p className="rounded-lg bg-surface p-6 text-muted">
+          <p className="rounded-lg border border-dashed border-line p-6 text-muted">
             Enter an amount to compare providers.
           </p>
         ) : ranked.length === 0 ? (
-          <p className="rounded-lg bg-surface p-6 text-muted">
+          <p className="rounded-lg border border-dashed border-line p-6 text-muted">
             No provider we track can send {money(amount, send.currency)} on this
             route. Try a larger amount.
           </p>
         ) : (
-          <ol ref={list} className="flex flex-col gap-3">
-            {ranked.map((r) => (
-              <ResultRow
-                key={r.provider}
-                result={r}
-                isBest={r === best}
-                sendCurrency={send.currency}
-                amount={amount}
-                maxCost={maxCost}
-                formatPayout={fmtReceive}
-              />
-            ))}
-          </ol>
+          <div className="relative">
+            <div className={`${ROW_GRID} pb-3 text-xs text-muted sm:text-sm`}>
+              <span />
+              <span className="pr-2 text-right">
+                Mid-market{" "}
+                <span className="tabular text-ink">
+                  {money(midPayout, receive.currency)}
+                </span>
+              </span>
+              <span className="text-right">Recipient gets</span>
+            </div>
+            {/* The finish line: one dashed rule through every track. */}
+            <span
+              aria-hidden
+              className={`pointer-events-none absolute top-7 bottom-0 border-r-2 border-dashed border-ink/35 ${FINISH_LINE}`}
+            />
+            <ol ref={list} className="border-b border-line">
+              {ranked.map((r) => (
+                <ResultRow
+                  key={r.provider}
+                  result={r}
+                  isBest={r === best}
+                  x={trackX(r.netPayout)}
+                  sendCurrency={send.currency}
+                  formatPayout={fmtReceive}
+                  formatLoss={fmtLoss}
+                  loss={Math.max(0, midPayout - r.netPayout)}
+                />
+              ))}
+            </ol>
+          </div>
         )}
 
         {best && worst && best !== worst && (
@@ -243,8 +294,7 @@ export function RemittanceCompare({ sending, receiving, providers }: Props) {
             <span className="tabular font-medium text-ink">
               {money(best.netPayout - worst.netPayout, receive.currency)}
             </span>{" "}
-            more in your recipient&apos;s hands. Showing the top {ranked.length}{" "}
-            of {servingCount} providers on this route.
+            more in your recipient&apos;s hands.
           </p>
         )}
 
@@ -305,8 +355,15 @@ function BestDeal({
         viewBox="0 0 200 200"
         className="pointer-events-none absolute -top-16 -right-16 hidden size-72 opacity-[0.12] sm:block"
       >
-        <circle cx="80" cy="100" r="70" fill="none" stroke="currentColor" strokeWidth="2" />
-        <circle cx="120" cy="100" r="70" fill="var(--gold)" />
+        <circle
+          cx="80"
+          cy="100"
+          r="70"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        />
+        <circle cx="120" cy="100" r="70" fill="var(--accent)" />
       </svg>
       <p className="relative text-base text-paper/75 sm:text-lg">
         Best deal right now: with{" "}
@@ -315,18 +372,16 @@ function BestDeal({
       </p>
       <Odometer
         text={formatPayout(best.netPayout)}
-        className="relative mt-3 font-display text-[clamp(2.5rem,10vw,5.75rem)] font-semibold tracking-tight tabular"
+        className="relative mt-3 font-display text-[clamp(2.5rem,10vw,5.75rem)] font-semibold tracking-tight tabular lg:text-[clamp(2.6rem,4.4vw,4.6rem)]"
       />
-      <p className="relative mt-5 flex flex-wrap items-baseline gap-x-2 text-sm text-paper/75 sm:text-base">
+      <p className="relative mt-5 text-sm text-paper/75 sm:text-base">
         <AnimatedNumber
           value={lost}
           format={formatPayout}
-          className="tabular font-semibold text-[var(--gold)]"
-        />
-        <span>
-          lost on the way ({money(best.totalCost, sendCurrency)} of what you send),
-          compared with the {receiveCurrency} mid-market rate.
-        </span>
+          className="tabular font-semibold text-loss-soft"
+        />{" "}
+        lost on the way ({money(best.totalCost, sendCurrency)} of what you
+        send), compared with the {receiveCurrency} mid-market rate.
       </p>
     </section>
   );
@@ -347,7 +402,7 @@ function InlineSelect({
   // lay the (invisible) select over it so keyboard, screen reader and mobile pickers still work.
   const label = options.find((o) => o.value === value)?.label;
   return (
-    <span className="relative inline-flex items-baseline gap-[0.15em] border-b-[3px] border-ink has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-4 has-[:focus-visible]:outline-gold">
+    <span className="relative inline-flex items-baseline gap-[0.15em] border-b-[3px] border-ink has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-4 has-[:focus-visible]:outline-accent">
       <span aria-hidden>{label}</span>
       <svg
         aria-hidden
@@ -372,96 +427,109 @@ function InlineSelect({
   );
 }
 
+// Rank | provider + track | payout. The track's right edge is the finish line.
+const ROW_GRID =
+  "grid grid-cols-[1.75rem_minmax(0,1fr)_8.75rem] gap-x-3 sm:grid-cols-[2.75rem_minmax(0,1fr)_12rem] sm:gap-x-5";
+const FINISH_LINE =
+  "right-[calc(8.75rem+0.75rem)] sm:right-[calc(12rem+1.25rem)]";
+
 function ResultRow({
   result: r,
   isBest,
+  x,
   sendCurrency,
-  amount,
-  maxCost,
   formatPayout,
+  formatLoss,
+  loss,
 }: {
   result: RankedQuote;
   isBest: boolean;
+  x: number;
   sendCurrency: string;
-  amount: number;
-  maxCost: number;
   formatPayout: (n: number) => string;
+  formatLoss: (n: number) => string;
+  loss: number;
 }) {
-  const costTotal = r.feeCost + r.marginCost;
   return (
     <li
       data-flip-id={r.provider}
-      className={`grid grid-cols-[2rem_1fr] gap-x-3 gap-y-4 rounded-xl bg-surface p-4 sm:grid-cols-[2.5rem_1fr_auto] sm:items-center sm:p-5 ${
-        isBest ? "shadow-[inset_4px_0_0_var(--gold)]" : ""
-      }`}
+      data-x={x.toFixed(2)}
+      className={`${ROW_GRID} items-start border-t border-line py-5 sm:py-6`}
     >
-      <span className="font-display tabular text-2xl font-semibold text-muted sm:text-3xl">
+      <span
+        className={`font-display tabular text-3xl leading-none font-semibold sm:text-[2.6rem] ${
+          isBest ? "text-accent-text" : "text-ink/25"
+        }`}
+      >
         {r.rank}
       </span>
 
-      <div className="flex min-w-0 flex-col gap-1">
-        <p className="flex flex-wrap items-baseline gap-x-3 font-display text-xl font-semibold">
+      <div className="flex min-w-0 flex-col gap-3">
+        <p className="flex flex-wrap items-baseline gap-x-3 font-display text-lg leading-tight font-semibold sm:text-xl">
           {r.name}
           {isBest && (
-            <span className="font-sans text-sm font-medium text-gold-text">
+            <span className="font-sans text-sm font-medium text-accent-text">
               Most money delivered
             </span>
           )}
         </p>
-        <p className="text-sm text-muted">{duration(r.transferMinutes)}</p>
-        <p className="text-xs text-muted">
-          Rate checked {r.ageMinutes} min ago
-        </p>
-      </div>
 
-      <div className="col-start-2 flex flex-col gap-1 sm:col-start-3 sm:row-start-1 sm:items-end">
-        <span className="text-sm text-muted">Recipient gets</span>
-        <AnimatedNumber
-          value={r.netPayout}
-          format={formatPayout}
-          className="font-display tabular text-[clamp(1.5rem,4vw,2.1rem)] leading-none font-semibold"
-        />
-      </div>
-
-      <div className="col-span-2 flex flex-col gap-2 sm:col-span-3">
         <div
-          className="relative flex h-2.5 rounded-full bg-paper"
+          className="relative h-4"
           role="img"
-          aria-label={`Cost breakdown: fee ${money(r.feeCost, sendCurrency)}, exchange-rate margin ${money(r.marginCost, sendCurrency)}`}
+          aria-label={`${formatLoss(loss)} short of the mid-market payout`}
         >
+          <span className="absolute inset-x-0 top-1/2 h-px bg-line" />
           <span
-            data-seg="fee"
-            className="origin-left rounded-l-full bg-fee transition-[width] duration-500"
-            style={{ width: `${(r.feeCost / maxCost) * 100}%` }}
+            data-fill
+            className={`absolute top-1/2 left-0 h-[3px] -translate-y-1/2 rounded-full transition-[width] duration-500 ${
+              isBest ? "bg-accent" : "bg-ink/70"
+            }`}
+            style={{ width: `${x}%` }}
           />
           <span
-            data-seg="margin"
-            className={`relative origin-left bg-margin transition-[width] duration-500 ${r.feeCost > 0 ? "rounded-r-full" : "rounded-full"}`}
-            style={{ width: `${(r.marginCost / maxCost) * 100}%` }}
+            data-dot
+            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 transition-[left] duration-500"
+            style={{ left: `${x}%` }}
           >
+            {isBest && (
+              <span
+                data-ring
+                aria-hidden
+                className="invisible absolute inset-0 rounded-full bg-accent"
+              />
+            )}
             <span
-              data-drip
-              aria-hidden
-              className="invisible absolute top-full right-0.5 size-1.5 rounded-full bg-margin"
+              className={`relative block size-3.5 rounded-full border-2 ${
+                isBest ? "border-accent bg-accent" : "border-ink bg-paper"
+              }`}
             />
           </span>
         </div>
-        <p className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
-          <span className="font-medium">
-            Costs you{" "}
-            <span className="tabular">{money(costTotal, sendCurrency)}</span> (
-            {percent(costTotal / amount)})
-          </span>
-          <span className="flex items-center gap-1.5 text-muted">
-            <span className="size-2 rounded-full bg-fee" aria-hidden /> Fee{" "}
-            <span className="tabular">{money(r.feeCost, sendCurrency)}</span>
-          </span>
-          <span className="flex items-center gap-1.5 text-muted">
-            <span className="size-2 rounded-full bg-margin" aria-hidden />{" "}
-            Hidden in the rate{" "}
+
+        <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted sm:text-sm">
+          <span>{duration(r.transferMinutes)}</span>
+          <span>
+            Fee{" "}
+            <span className="tabular">{money(r.feeCost, sendCurrency)}</span> +
+            rate margin{" "}
             <span className="tabular">{money(r.marginCost, sendCurrency)}</span>
           </span>
+          <span>Checked {r.ageMinutes} min ago</span>
         </p>
+      </div>
+
+      <div className="flex flex-col items-end gap-1 text-right">
+        <AnimatedNumber
+          value={r.netPayout}
+          format={formatPayout}
+          className="font-display tabular text-base leading-tight font-semibold sm:text-[1.6rem]"
+        />
+        <AnimatedNumber
+          value={loss}
+          format={formatLoss}
+          className="tabular text-xs font-medium text-loss sm:text-sm"
+        />
       </div>
     </li>
   );

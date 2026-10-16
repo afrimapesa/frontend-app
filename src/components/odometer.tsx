@@ -14,15 +14,26 @@ const DIGITS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
  * keeps units under units and only the new leading digit appears.
  * On first mount the digits roll up from zero; afterwards they roll to each new value.
  */
-export function Odometer({ text, className }: { text: string; className?: string }) {
+export function Odometer({
+  text,
+  className,
+}: {
+  text: string;
+  className?: string;
+}) {
   const root = useRef<HTMLSpanElement>(null);
   const mounted = useRef(false);
   const chars = Array.from(text);
 
   useGSAP(
     () => {
-      const strips = gsap.utils.toArray<HTMLElement>("[data-digit]", root.current);
-      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const strips = gsap.utils.toArray<HTMLElement>(
+        "[data-digit]",
+        root.current,
+      );
+      const reduce = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
       strips.forEach((strip) => {
         const target = -Number(strip.dataset.digit) * 10;
         const fromRight = Number(strip.dataset.pos);
@@ -32,7 +43,12 @@ export function Odometer({ text, className }: { text: string; className?: string
           gsap.fromTo(
             strip,
             { y: 0, yPercent: 0 },
-            { yPercent: target, duration: 1.4, ease: "expo.out", delay: 0.15 + fromRight * 0.06 },
+            {
+              yPercent: target,
+              duration: 1.4,
+              ease: "expo.out",
+              delay: 0.15 + fromRight * 0.06,
+            },
           );
         } else {
           gsap.to(strip, {
@@ -57,7 +73,11 @@ export function Odometer({ text, className }: { text: string; className?: string
         const pos = chars.length - 1 - i;
         if (!/\d/.test(ch)) {
           return (
-            <span key={`p${pos}`} aria-hidden className="inline-block h-[1.1em] leading-[1.1em]">
+            <span
+              key={`p${pos}`}
+              aria-hidden
+              className="inline-block h-[1.1em] leading-[1.1em]"
+            >
               {ch}
             </span>
           );

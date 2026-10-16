@@ -1,17 +1,17 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, Public_Sans } from "next/font/google";
+import { Red_Hat_Display, Red_Hat_Text } from "next/font/google";
 import { FxTicker } from "@/components/fx-ticker";
 import { SiteNav } from "@/components/site-nav";
 
 import "./globals.css";
 
-const bricolage = Bricolage_Grotesque({
-  variable: "--font-bricolage",
+const display = Red_Hat_Display({
+  variable: "--font-red-hat-display",
   subsets: ["latin"],
 });
 
-const publicSans = Public_Sans({
-  variable: "--font-public-sans",
+const text = Red_Hat_Text({
+  variable: "--font-red-hat-text",
   subsets: ["latin"],
 });
 
@@ -24,7 +24,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${bricolage.variable} ${publicSans.variable} h-full antialiased`}
+      className={`${display.variable} ${text.variable} h-full antialiased`}
     >
       {/* Browser extensions (e.g. ColorZilla) add attributes to <body> before hydration. */}
       <body className="min-h-full flex flex-col" suppressHydrationWarning>

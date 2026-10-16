@@ -71,16 +71,23 @@ export function FxTicker() {
     >
       <div data-track className="flex w-max">
         {[0, 1].map((copy) => (
-          <ul key={copy} aria-hidden={copy === 1} className="flex shrink-0 items-center gap-8 py-2 pr-8 text-xs sm:text-sm">
+          <ul
+            key={copy}
+            aria-hidden={copy === 1}
+            className="flex shrink-0 items-center gap-8 py-2 pr-8 text-xs sm:text-sm"
+          >
             <li className="rounded-sm bg-paper/15 px-2 py-0.5 text-[0.7rem] font-semibold text-paper/80">
               Sample rates
             </li>
             {ITEMS.map((item) => (
-              <li key={item.pair} className="flex items-baseline gap-2 whitespace-nowrap">
+              <li
+                key={item.pair}
+                className="flex items-baseline gap-2 whitespace-nowrap"
+              >
                 <span className="text-paper/60">{item.pair}</span>
                 <span className="tabular font-medium">{item.value}</span>
                 <span
-                  className={`tabular ${item.change >= 0 ? "text-[#7fd1a8]" : "text-[#f29b85]"}`}
+                  className={`tabular ${item.change >= 0 ? "text-[#4fe0b5]" : "text-[#ff7f9f]"}`}
                 >
                   <span aria-hidden>{item.change >= 0 ? "▲" : "▼"}</span>
                   {Math.abs(item.change * 100).toFixed(2)}%

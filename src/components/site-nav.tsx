@@ -19,7 +19,9 @@ export function SiteNav() {
   const pathname = usePathname();
   const activeIndex = Math.max(
     0,
-    NAV_LINKS.findIndex((l) => (l.href === "/" ? pathname === "/" : pathname.startsWith(l.href))),
+    NAV_LINKS.findIndex((l) =>
+      l.href === "/" ? pathname === "/" : pathname.startsWith(l.href),
+    ),
   );
 
   return (
@@ -27,9 +29,12 @@ export function SiteNav() {
     <header className="relative z-40 border-b border-line bg-paper">
       <nav
         aria-label="Main"
-        className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-6 px-4 sm:px-6"
+        className="mx-auto flex h-16 w-full max-w-[90rem] items-center justify-between gap-6 px-4 sm:px-6 lg:px-10"
       >
-        <Link href="/" className="flex items-center gap-2.5 font-display text-xl font-bold tracking-tight">
+        <Link
+          href="/"
+          className="flex items-center gap-2.5 font-display text-xl font-bold tracking-tight"
+        >
           <Mark />
           AfrimaPesa
         </Link>
@@ -44,22 +49,36 @@ export function SiteNav() {
 function Mark() {
   return (
     <svg viewBox="0 0 32 32" aria-hidden className="size-7">
-      <circle cx="12" cy="16" r="9" className="fill-none stroke-ink" strokeWidth="3" />
-      <circle cx="20" cy="16" r="9" className="fill-gold/90 stroke-none mix-blend-multiply" />
+      <circle
+        cx="12"
+        cy="16"
+        r="9"
+        className="fill-none stroke-ink"
+        strokeWidth="3"
+      />
+      <circle
+        cx="20"
+        cy="16"
+        r="9"
+        className="fill-accent/90 stroke-none mix-blend-multiply"
+      />
     </svg>
   );
 }
 
-/** Marigold marker slides to whichever link is hovered or focused, then home to the active one. */
+/** Jade marker slides to whichever link is hovered or focused, then home to the active one. */
 function DesktopLinks({ activeIndex }: { activeIndex: number }) {
   const list = useRef<HTMLUListElement>(null);
   const marker = useRef<HTMLSpanElement>(null);
 
   const moveTo = useCallback((index: number, instant = false) => {
     // Query the <li>s, not children: the marker itself is the list's first child.
-    const item = list.current?.querySelectorAll<HTMLElement>(":scope > li")[index];
+    const item =
+      list.current?.querySelectorAll<HTMLElement>(":scope > li")[index];
     if (!item || !marker.current) return;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reduce = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
     gsap.to(marker.current, {
       x: item.offsetLeft,
       width: item.offsetWidth,
@@ -69,7 +88,10 @@ function DesktopLinks({ activeIndex }: { activeIndex: number }) {
     });
   }, []);
 
-  useGSAP(() => moveTo(activeIndex, true), { dependencies: [activeIndex], scope: list });
+  useGSAP(() => moveTo(activeIndex, true), {
+    dependencies: [activeIndex],
+    scope: list,
+  });
 
   useEffect(() => {
     const onResize = () => moveTo(activeIndex, true);
@@ -89,7 +111,7 @@ function DesktopLinks({ activeIndex }: { activeIndex: number }) {
       <span
         ref={marker}
         aria-hidden
-        className="pointer-events-none absolute top-1/2 left-0 h-9 -translate-y-1/2 rounded-full bg-gold/25"
+        className="pointer-events-none absolute top-1/2 left-0 h-9 -translate-y-1/2 rounded-full bg-accent/25"
       />
       {NAV_LINKS.map((link, i) => (
         <li key={link.href} className="relative">
@@ -131,7 +153,12 @@ function MobileMenu({ activeIndex }: { activeIndex: number }) {
           { yPercent: 0, duration: 0.6, ease: "power3.out", stagger: 0.06 },
           "-=0.2",
         )
-        .fromTo("[data-sheet-foot]", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.3 }, "-=0.3");
+        .fromTo(
+          "[data-sheet-foot]",
+          { autoAlpha: 0 },
+          { autoAlpha: 1, duration: 0.3 },
+          "-=0.3",
+        );
     },
     { scope },
   );
@@ -139,7 +166,9 @@ function MobileMenu({ activeIndex }: { activeIndex: number }) {
   useEffect(() => {
     const t = tl.current;
     if (!t) return;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reduce = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
     if (open) {
       document.body.style.overflow = "hidden";
       if (reduce) t.progress(1);
@@ -187,7 +216,7 @@ function MobileMenu({ activeIndex }: { activeIndex: number }) {
                 data-sheet-link
                 aria-current={i === activeIndex ? "page" : undefined}
                 onClick={() => setOpen(false)}
-                className="block font-display text-[clamp(2.4rem,11vw,3.5rem)] leading-[1.1] font-semibold tracking-tight aria-[current=page]:text-gold"
+                className="block font-display text-[clamp(2.4rem,11vw,3.5rem)] leading-[1.1] font-semibold tracking-tight aria-[current=page]:text-accent"
               >
                 {link.label}
               </Link>
@@ -195,8 +224,8 @@ function MobileMenu({ activeIndex }: { activeIndex: number }) {
           ))}
         </ul>
         <p data-sheet-foot className="text-sm text-paper/70">
-          Remittance, bank rates and sovereign yields for Nigeria, Ghana, Kenya, Tanzania, Egypt and
-          South Africa.
+          Remittance, bank rates and sovereign yields for Nigeria, Ghana, Kenya,
+          Tanzania, Egypt and South Africa.
         </p>
       </div>
     </div>
