@@ -1,26 +1,70 @@
 @import "tailwindcss";
 
+/* Ledger palette: green ink on sage paper, marigold reserved for "most money delivered",
+   coral for the hidden exchange-rate margin. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --paper: #eef2ec;
+  --surface: #fbfcf9;
+  --ink: #0e2a22;
+  --muted: #56675f;
+  --line: #c9d3cc;
+  --gold: #e3a01b;
+  --gold-text: #8a5a00;
+  --margin: #c4513a;
+  --fee: #7f978e;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --paper: #0f1a16;
+    --surface: #15241f;
+    --ink: #e4ede8;
+    --muted: #94a69e;
+    --line: #2a3b34;
+    --gold: #f0b43f;
+    --gold-text: #f0b43f;
+    --margin: #e27a62;
+    --fee: #6f877f;
   }
 }
 
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-gold: var(--gold);
+  --color-gold-text: var(--gold-text);
+  --color-margin: var(--margin);
+  --color-fee: var(--fee);
+  --font-sans: var(--font-public-sans);
+  --font-display: var(--font-bricolage);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), system-ui, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-public-sans), system-ui, sans-serif;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Amount input grows with its content. */
+.amount-input {
+  width: calc(var(--len) * 1ch);
+}
+@supports (field-sizing: content) {
+  .amount-input {
+    field-sizing: content;
+    width: auto;
+    min-width: 1ch;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
 }

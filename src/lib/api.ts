@@ -1,6 +1,9 @@
 // Typed client for the AfrimaPesa Django API (backend repo: ../backend app).
 
-const API_URL = process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_URL =
+  process.env.API_URL ??
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:8000";
 
 export class ApiError extends Error {
   constructor(
@@ -25,7 +28,12 @@ export type Health = {
   checks: { database: boolean; cache: boolean };
 };
 
-export type Currency = { code: string; name: string; symbol: string; minor_units: number };
+export type Currency = {
+  code: string;
+  name: string;
+  symbol: string;
+  minor_units: number;
+};
 
 export type Country = {
   code: string;
