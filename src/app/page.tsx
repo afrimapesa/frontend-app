@@ -5,16 +5,7 @@ import { api } from "@/lib/api";
 
 export default function Home() {
   return (
-    <main className="mx-auto flex w-full max-w-4xl flex-col gap-10 px-4 pt-8 pb-20 sm:px-6 sm:pt-12">
-      <header className="flex items-baseline justify-between gap-4">
-        <p className="font-display text-lg font-bold tracking-tight">
-          AfrimaPesa
-        </p>
-        <p className="text-sm text-muted">
-          Compare the true cost of sending money home
-        </p>
-      </header>
-
+    <main className="mx-auto flex w-full max-w-4xl flex-col gap-10 px-4 pt-10 pb-20 sm:px-6 sm:pt-16">
       <Suspense fallback={<CompareSkeleton />}>
         <CompareWithData />
       </Suspense>

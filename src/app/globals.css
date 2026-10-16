@@ -52,6 +52,11 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Odometer digit strip: shows digit --d before JS runs (GSAP takes over after). */
+.odometer-strip {
+  transform: translateY(calc(var(--d) * -10%));
+}
+
 /* Amount input grows with its content. */
 .amount-input {
   width: calc(var(--len) * 1ch);

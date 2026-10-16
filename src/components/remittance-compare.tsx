@@ -6,6 +6,7 @@ import { Flip } from "gsap/Flip";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import { AnimatedNumber } from "@/components/animated-number";
+import { Odometer } from "@/components/odometer";
 import type { Country, Provider } from "@/lib/api";
 import { currencySymbol, duration, money, percent, rate } from "@/lib/format";
 import { type RankedQuote, rankQuotes } from "@/lib/remittance";
@@ -69,24 +70,44 @@ export function RemittanceCompare({ sending, receiving, providers }: Props) {
     () => {
       const state = flipState.current;
       flipState.current = null;
-      if (
-        !state ||
-        window.matchMedia("(prefers-reduced-motion: reduce)").matches
-      )
-        return;
-      Flip.from(state, {
-        targets: list.current?.querySelectorAll("[data-flip-id]"),
-        duration: 0.55,
-        ease: "power3.inOut",
-        onEnter: (els) =>
-          gsap.fromTo(
-            els,
-            { autoAlpha: 0, y: 16 },
-            { autoAlpha: 1, y: 0, duration: 0.4 },
-          ),
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      if (state) {
+        Flip.from(state, {
+          targets: list.current?.querySelectorAll("[data-flip-id]"),
+          duration: 0.55,
+          ease: "power3.inOut",
+          onEnter: (els) =>
+            gsap.fromTo(
+              els,
+              { autoAlpha: 0, y: 16 },
+              { autoAlpha: 1, y: 0, duration: 0.4 },
+            ),
+        });
+      }
+      // Leak: each provider's losses pour into its bar, fee first, then the hidden margin.
+      const rows = gsap.utils.toArray<HTMLElement>("[data-flip-id]", list.current);
+      rows.forEach((row, i) => {
+        gsap
+          .timeline({ delay: 0.35 + i * 0.12 })
+          .fromTo(
+            row.querySelector("[data-seg=fee]"),
+            { scaleX: 0 },
+            { scaleX: 1, duration: 0.45, ease: "power2.in" },
+          )
+          .fromTo(
+            row.querySelector("[data-seg=margin]"),
+            { scaleX: 0 },
+            { scaleX: 1, duration: 0.9, ease: "power3.out" },
+          )
+          .fromTo(
+            row.querySelector("[data-drip]"),
+            { y: -4, autoAlpha: 1, scale: 1 },
+            { y: 14, autoAlpha: 0, scale: 0.4, duration: 0.6, ease: "power2.in" },
+            "-=0.35",
+          );
       });
     },
-    { dependencies: [order], scope: list },
+    { dependencies: [order, corridorCode], scope: list },
   );
 
   const fmtReceive = useCallback(
@@ -153,6 +174,17 @@ export function RemittanceCompare({ sending, receiving, providers }: Props) {
           Amount in {send.currency}
         </p>
       </form>
+
+      {best && amount > 0 && (
+        <BestDeal
+          best={best}
+          midPayout={midPayout}
+          sendCurrency={send.currency}
+          receiveCurrency={receive.currency}
+          receiveCountry={receive.name}
+          formatPayout={fmtReceive}
+        />
+      )}
 
       <section
         aria-labelledby="results-heading"
@@ -223,6 +255,80 @@ export function RemittanceCompare({ sending, receiving, providers }: Props) {
         </p>
       </section>
     </div>
+  );
+}
+
+function BestDeal({
+  best,
+  midPayout,
+  sendCurrency,
+  receiveCurrency,
+  receiveCountry,
+  formatPayout,
+}: {
+  best: RankedQuote;
+  midPayout: number;
+  sendCurrency: string;
+  receiveCurrency: string;
+  receiveCountry: string;
+  formatPayout: (n: number) => string;
+}) {
+  const card = useRef<HTMLElement>(null);
+  const lost = Math.max(0, midPayout - best.netPayout);
+
+  // The page's one orchestrated entrance: the card wipes open, then the odometer rolls.
+  useGSAP(
+    () => {
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      gsap.fromTo(
+        card.current,
+        { clipPath: "inset(0% 100% 0% 0%)" },
+        {
+          clipPath: "inset(0% 0% 0% 0%)",
+          duration: 0.9,
+          ease: "power4.inOut",
+          clearProps: "clipPath",
+        },
+      );
+    },
+    { scope: card },
+  );
+
+  return (
+    <section
+      ref={card}
+      aria-live="polite"
+      className="relative overflow-hidden rounded-[1.25rem] bg-ink px-5 py-7 text-paper sm:px-9 sm:py-10"
+    >
+      <svg
+        aria-hidden
+        viewBox="0 0 200 200"
+        className="pointer-events-none absolute -top-16 -right-16 hidden size-72 opacity-[0.12] sm:block"
+      >
+        <circle cx="80" cy="100" r="70" fill="none" stroke="currentColor" strokeWidth="2" />
+        <circle cx="120" cy="100" r="70" fill="var(--gold)" />
+      </svg>
+      <p className="relative text-base text-paper/75 sm:text-lg">
+        Best deal right now: with{" "}
+        <span className="font-semibold text-paper">{best.name}</span>, your
+        recipient in {receiveCountry} gets
+      </p>
+      <Odometer
+        text={formatPayout(best.netPayout)}
+        className="relative mt-3 font-display text-[clamp(2.5rem,10vw,5.75rem)] font-semibold tracking-tight tabular"
+      />
+      <p className="relative mt-5 flex flex-wrap items-baseline gap-x-2 text-sm text-paper/75 sm:text-base">
+        <AnimatedNumber
+          value={lost}
+          format={formatPayout}
+          className="tabular font-semibold text-[var(--gold)]"
+        />
+        <span>
+          lost on the way ({money(best.totalCost, sendCurrency)} of what you send),
+          compared with the {receiveCurrency} mid-market rate.
+        </span>
+      </p>
+    </section>
   );
 }
 
@@ -319,18 +425,26 @@ function ResultRow({
 
       <div className="col-span-2 flex flex-col gap-2 sm:col-span-3">
         <div
-          className="flex h-2 overflow-hidden rounded-full bg-paper"
+          className="relative flex h-2.5 rounded-full bg-paper"
           role="img"
           aria-label={`Cost breakdown: fee ${money(r.feeCost, sendCurrency)}, exchange-rate margin ${money(r.marginCost, sendCurrency)}`}
         >
           <span
-            className="bg-fee transition-[width] duration-500"
+            data-seg="fee"
+            className="origin-left rounded-l-full bg-fee transition-[width] duration-500"
             style={{ width: `${(r.feeCost / maxCost) * 100}%` }}
           />
           <span
-            className="bg-margin transition-[width] duration-500"
+            data-seg="margin"
+            className={`relative origin-left bg-margin transition-[width] duration-500 ${r.feeCost > 0 ? "rounded-r-full" : "rounded-full"}`}
             style={{ width: `${(r.marginCost / maxCost) * 100}%` }}
-          />
+          >
+            <span
+              data-drip
+              aria-hidden
+              className="invisible absolute top-full right-0.5 size-1.5 rounded-full bg-margin"
+            />
+          </span>
         </div>
         <p className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
           <span className="font-medium">
