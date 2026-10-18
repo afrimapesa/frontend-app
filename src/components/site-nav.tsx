@@ -2,6 +2,7 @@
 
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -51,24 +52,17 @@ export function SiteNav() {
   );
 }
 
-/** Two offset rings: money moving between two places. */
+/** Official AFRIMAPESA mark: gold diamond with the outline of Africa, on navy. */
 function Mark() {
   return (
-    <svg viewBox="0 0 32 32" aria-hidden className="size-7">
-      <circle
-        cx="12"
-        cy="16"
-        r="9"
-        className="fill-none stroke-ink"
-        strokeWidth="3"
-      />
-      <circle
-        cx="20"
-        cy="16"
-        r="9"
-        className="fill-accent/90 stroke-none mix-blend-multiply"
-      />
-    </svg>
+    <Image
+      src="/brand/afrimapesa-mark.png"
+      alt=""
+      width={36}
+      height={36}
+      priority
+      className="size-9 rounded-lg"
+    />
   );
 }
 

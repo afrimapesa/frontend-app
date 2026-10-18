@@ -7,6 +7,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 
 import { AnimatedNumber } from "@/components/animated-number";
 import { Odometer } from "@/components/odometer";
+import { ProviderLogo } from "@/components/provider-logo";
 import { RateTrend } from "@/components/rate-trend";
 import type { Country, Provider } from "@/lib/api";
 import { duration, money, rate } from "@/lib/format";
@@ -379,8 +380,16 @@ function BestDeal({
       </svg>
       <p className="relative text-white/75">
         Best deal right now: with{" "}
-        <span className="font-semibold text-white">{best.name}</span>, your
-        recipient in {receiveCountry} gets
+        <span className="inline-flex items-center gap-1.5 align-middle font-semibold text-white">
+          <ProviderLogo
+            slug={best.provider}
+            name={best.name}
+            size={22}
+            className="border-white/20"
+          />
+          {best.name}
+        </span>
+        , your recipient in {receiveCountry} gets
       </p>
       <Odometer
         text={formatPayout(best.netPayout)}
@@ -510,14 +519,17 @@ function ResultRow({
       </span>
 
       <div className="flex min-w-0 flex-col gap-3">
-        <p className="flex flex-wrap items-baseline gap-x-3 font-display text-lg leading-tight font-semibold sm:text-xl">
-          {r.name}
-          {isBest && (
-            <span className="font-sans text-sm font-medium text-accent-text">
-              Most money delivered
-            </span>
-          )}
-        </p>
+        <div className="flex items-center gap-3">
+          <ProviderLogo slug={r.provider} name={r.name} size={40} />
+          <p className="flex flex-wrap items-baseline gap-x-3 font-display text-lg leading-tight font-semibold sm:text-xl">
+            {r.name}
+            {isBest && (
+              <span className="font-sans text-sm font-medium text-accent-text">
+                Most money delivered
+              </span>
+            )}
+          </p>
+        </div>
 
         <div
           className="relative h-4"
@@ -584,7 +596,9 @@ function ResultRow({
             className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-semibold transition-colors hover:border-ink hover:bg-ink hover:text-paper sm:text-sm"
           >
             <span className="sm:hidden">Visit</span>
-            <span className="hidden sm:inline">Go to {r.name}</span>
+            <span className="hidden whitespace-nowrap sm:inline">
+              {r.name.length > 12 ? "Visit site" : `Go to ${r.name}`}
+            </span>
             <svg
               aria-hidden
               viewBox="0 0 16 16"
