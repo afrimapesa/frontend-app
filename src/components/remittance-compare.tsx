@@ -105,19 +105,6 @@ export function RemittanceCompare({ sending, receiving, providers }: Props) {
           { left: `${x}%`, ...opts },
         );
       });
-      const ring = list.current?.querySelector("[data-ring]");
-      if (ring)
-        gsap.fromTo(
-          ring,
-          { scale: 1, autoAlpha: 0.7 },
-          {
-            scale: 3.2,
-            autoAlpha: 0,
-            duration: 0.9,
-            ease: "power2.out",
-            delay: 1.4,
-          },
-        );
     },
     { dependencies: [order, corridorCode], scope: list },
   );
@@ -137,11 +124,9 @@ export function RemittanceCompare({ sending, receiving, providers }: Props) {
   const span = Math.max(worstGap * 1.35, midPayout * 0.001, 0.01);
   const trackX = (payout: number) =>
     Math.min(100, Math.max(2, (1 - (midPayout - payout) / span) * 100));
-  const best = ranked[0];
-  const worst = ranked.at(-1);
 
   return (
-    // Mobile order: form, best deal, rankings, trend. Desktop: two columns, with the
+    // Mobile order: form, mid-market card, rankings, trend. Desktop: two columns, with the
     // wrappers switching from `contents` (children join the outer flow) to flex columns.
     <div className="flex flex-col gap-10 lg:grid lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:gap-12 xl:gap-16">
       <div className="contents lg:flex lg:flex-col lg:gap-12">
@@ -157,7 +142,7 @@ export function RemittanceCompare({ sending, receiving, providers }: Props) {
           </header>
 
           <form
-            className="grid gap-5 rounded-xl border border-line p-5 sm:grid-cols-2 sm:p-6"
+            className="grid grid-cols-[minmax(0,1fr)] gap-5 rounded-xl border border-line bg-surface p-5 sm:grid-cols-2 sm:p-6"
             onSubmit={(e) => e.preventDefault()}
           >
             <Field id="send" label="Sending from">
@@ -189,7 +174,7 @@ export function RemittanceCompare({ sending, receiving, providers }: Props) {
               />
             </Field>
             <Field id="amount" label="Amount to send" className="sm:col-span-2">
-              <div className="flex items-center rounded-lg border border-line bg-paper focus-within:border-ink focus-within:ring-1 focus-within:ring-ink">
+              <div className="flex items-center rounded-lg border border-line bg-surface focus-within:border-ink focus-within:ring-1 focus-within:ring-ink">
                 <input
                   id="amount"
                   inputMode="decimal"
@@ -260,7 +245,6 @@ export function RemittanceCompare({ sending, receiving, providers }: Props) {
                   <ResultRow
                     key={r.provider}
                     result={r}
-                    isBest={r === best}
                     x={trackX(r.netPayout)}
                     sendCurrency={send.currency}
                     formatPayout={fmtReceive}
@@ -272,15 +256,11 @@ export function RemittanceCompare({ sending, receiving, providers }: Props) {
             </div>
           )}
 
-          {best && worst && best !== worst && (
-            <p className="text-sm text-muted sm:text-base">
-              Choosing {best.name} over {worst.name} puts{" "}
-              <span className="tabular font-medium text-ink">
-                {money(best.netPayout - worst.netPayout, receive.currency)}
-              </span>{" "}
-              more in your recipient&apos;s hands.
-            </p>
-          )}
+          <p className="text-sm text-muted">
+            Providers are listed in order of the amount your recipient receives.{" "}
+            AFRIMAPESA does not recommend any provider: check fees, limits and
+            terms with the provider before you send.
+          </p>
 
           <p className="rounded-md border border-dashed border-line px-4 py-3 text-sm text-muted">
             Preview with sample rates. Countries and provider coverage are live;
@@ -291,10 +271,10 @@ export function RemittanceCompare({ sending, receiving, providers }: Props) {
       </div>
 
       <aside className="contents lg:sticky lg:top-6 lg:flex lg:flex-col lg:gap-10 lg:self-start">
-        {best && amount > 0 && (
+        {amount > 0 && (
           <div className="order-2 lg:order-none">
-            <BestDeal
-              best={best}
+            <MidMarketCard
+              amount={amount}
               mid={mid}
               midPayout={midPayout}
               sendCurrency={send.currency}
@@ -312,8 +292,8 @@ export function RemittanceCompare({ sending, receiving, providers }: Props) {
   );
 }
 
-function BestDeal({
-  best,
+function MidMarketCard({
+  amount,
   mid,
   midPayout,
   sendCurrency,
@@ -321,7 +301,7 @@ function BestDeal({
   receiveCountry,
   formatPayout,
 }: {
-  best: RankedQuote;
+  amount: number;
   mid: number;
   midPayout: number;
   sendCurrency: string;
@@ -330,7 +310,6 @@ function BestDeal({
   formatPayout: (n: number) => string;
 }) {
   const card = useRef<HTMLElement>(null);
-  const lost = Math.max(0, midPayout - best.netPayout);
 
   // The page's one orchestrated entrance: the card wipes open, then the odometer rolls.
   useGSAP(
@@ -379,20 +358,11 @@ function BestDeal({
         />
       </svg>
       <p className="relative text-white/75">
-        Best deal right now: with{" "}
-        <span className="inline-flex items-center gap-1.5 align-middle font-semibold text-white">
-          <ProviderLogo
-            slug={best.provider}
-            name={best.name}
-            size={22}
-            className="border-white/20"
-          />
-          {best.name}
-        </span>
-        , your recipient in {receiveCountry} gets
+        At the mid-market rate, {money(amount, sendCurrency)} sent to{" "}
+        {receiveCountry} becomes
       </p>
       <Odometer
-        text={formatPayout(best.netPayout)}
+        text={formatPayout(midPayout)}
         className="relative mt-3 font-display text-[clamp(2.4rem,9vw,4.25rem)] font-bold tracking-tight tabular"
       />
       <dl className="relative mt-6 grid grid-cols-2 gap-4 border-t border-white/20 pt-5">
@@ -412,13 +382,8 @@ function BestDeal({
         </div>
       </dl>
       <p className="relative mt-4 text-sm text-white/75">
-        <AnimatedNumber
-          value={lost}
-          format={formatPayout}
-          className="tabular font-semibold text-white"
-        />{" "}
-        lost on the way ({money(best.totalCost, sendCurrency)} of what you send)
-        compared with the mid-market payout.
+        The mid-market rate is the rate banks trade currencies at. Providers add
+        fees and a margin on top, so your recipient receives less than this.
       </p>
     </section>
   );
@@ -462,7 +427,7 @@ function Select({
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full cursor-pointer appearance-none rounded-lg border border-line bg-paper py-3 pr-10 pl-4 font-medium outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+        className="w-full cursor-pointer appearance-none rounded-lg border border-line bg-surface py-3 pr-10 pl-4 font-medium outline-none focus:border-ink focus:ring-1 focus:ring-ink"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
@@ -483,13 +448,12 @@ function Select({
 
 // Rank | provider + track | payout. The track's right edge is the finish line.
 const ROW_GRID =
-  "grid grid-cols-[1.75rem_minmax(0,1fr)_8.75rem] gap-x-3 sm:grid-cols-[2.75rem_minmax(0,1fr)_12rem] sm:gap-x-5";
+  "grid grid-cols-[1.5rem_minmax(0,1fr)_8.75rem] gap-x-3 sm:grid-cols-[2.25rem_minmax(0,1fr)_10.5rem] sm:gap-x-5";
 const FINISH_LINE =
-  "right-[calc(8.75rem+0.75rem)] sm:right-[calc(12rem+1.25rem)]";
+  "right-[calc(8.75rem+0.75rem)] sm:right-[calc(10.5rem+1.25rem)]";
 
 function ResultRow({
   result: r,
-  isBest,
   x,
   sendCurrency,
   formatPayout,
@@ -497,7 +461,6 @@ function ResultRow({
   loss,
 }: {
   result: RankedQuote;
-  isBest: boolean;
   x: number;
   sendCurrency: string;
   formatPayout: (n: number) => string;
@@ -510,24 +473,15 @@ function ResultRow({
       data-x={x.toFixed(2)}
       className={`${ROW_GRID} items-start border-t border-line py-5 sm:py-6`}
     >
-      <span
-        className={`font-display tabular text-3xl leading-none font-semibold sm:text-[2.6rem] ${
-          isBest ? "text-accent-text" : "text-ink/25"
-        }`}
-      >
+      <span className="font-display tabular text-2xl leading-none font-semibold text-ink/30 sm:text-3xl">
         {r.rank}
       </span>
 
       <div className="flex min-w-0 flex-col gap-3">
         <div className="flex items-center gap-3">
-          <ProviderLogo slug={r.provider} name={r.name} size={40} />
-          <p className="flex flex-wrap items-baseline gap-x-3 font-display text-lg leading-tight font-semibold sm:text-xl">
+          <ProviderLogo slug={r.provider} name={r.name} size={32} />
+          <p className="font-display text-base leading-tight font-semibold sm:text-lg">
             {r.name}
-            {isBest && (
-              <span className="font-sans text-sm font-medium text-accent-text">
-                Most money delivered
-              </span>
-            )}
           </p>
         </div>
 
@@ -539,9 +493,7 @@ function ResultRow({
           <span className="absolute inset-x-0 top-1/2 h-px bg-line" />
           <span
             data-fill
-            className={`absolute top-1/2 left-0 h-[3px] -translate-y-1/2 rounded-full transition-[width] duration-500 ${
-              isBest ? "bg-accent" : "bg-ink/70"
-            }`}
+            className="absolute top-1/2 left-0 h-[3px] -translate-y-1/2 rounded-full bg-ink/70 transition-[width] duration-500"
             style={{ width: `${x}%` }}
           />
           <span
@@ -549,18 +501,7 @@ function ResultRow({
             className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 transition-[left] duration-500"
             style={{ left: `${x}%` }}
           >
-            {isBest && (
-              <span
-                data-ring
-                aria-hidden
-                className="invisible absolute inset-0 rounded-full bg-accent"
-              />
-            )}
-            <span
-              className={`relative block size-3.5 rounded-full border-2 ${
-                isBest ? "border-accent bg-accent" : "border-ink bg-paper"
-              }`}
-            />
+            <span className="relative block size-3.5 rounded-full border-2 border-ink bg-paper" />
           </span>
         </div>
 
@@ -580,7 +521,7 @@ function ResultRow({
         <AnimatedNumber
           value={r.netPayout}
           format={formatPayout}
-          className="font-display tabular text-base leading-tight font-semibold sm:text-[1.6rem]"
+          className="font-display tabular text-base leading-tight font-semibold sm:text-xl"
         />
         <AnimatedNumber
           value={loss}

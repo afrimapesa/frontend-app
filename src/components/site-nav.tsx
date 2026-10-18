@@ -196,11 +196,26 @@ function MobileMenu({ activeIndex }: { activeIndex: number }) {
         type="button"
         aria-expanded={open}
         aria-controls="mobile-menu"
+        aria-label={open ? "Close menu" : "Open menu"}
         onClick={() => setOpen((o) => !o)}
-        className="relative z-50 rounded-full px-4 py-2 text-sm font-semibold"
+        className="relative z-50 -mr-2 grid size-11 place-items-center rounded-full"
         style={{ color: open ? "var(--paper)" : undefined }}
       >
-        {open ? "Close" : "Menu"}
+        {/* Three bars; the outer two rotate into an X and the middle fades when open. */}
+        <span aria-hidden className="relative block h-3.5 w-6">
+          {[
+            open ? "top-1/2 -translate-y-1/2 rotate-45" : "top-0",
+            open
+              ? "top-1/2 -translate-y-1/2 opacity-0"
+              : "top-1/2 -translate-y-1/2",
+            open ? "top-1/2 -translate-y-1/2 -rotate-45" : "bottom-0",
+          ].map((pos, i) => (
+            <span
+              key={i}
+              className={`absolute left-0 h-0.5 w-full rounded-full bg-current transition-all duration-300 ${pos}`}
+            />
+          ))}
+        </span>
       </button>
       <div
         id="mobile-menu"

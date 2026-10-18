@@ -3,11 +3,13 @@
 /* Navy ink on white. Jade marks the best deal; raspberry marks money lost.
    No warm tones anywhere. */
 :root {
-  --paper: #ffffff;
-  --surface: #f2f5f9;
+  --font-red-hat-display: "Red Hat Display Variable", system-ui, sans-serif;
+  --font-red-hat-text: "Red Hat Text Variable", system-ui, sans-serif;
+  --paper: #e9f4ee; /* light green page */
+  --surface: #ffffff; /* raised panels and fields */
   --ink: #0b1f3a;
   --muted: #5a6880;
-  --line: #dde3ec;
+  --line: #cfe2d7;
   --accent: #12a37f;
   --accent-text: #0b7a5e;
   --loss: #c8204e;

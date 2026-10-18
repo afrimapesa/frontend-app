@@ -77,7 +77,10 @@ export function RateTrend({ base, quote }: { base: string; quote: string }) {
   const coveredDays = series?.points.length ?? 0;
 
   return (
-    <section aria-labelledby="trend-heading" className="flex flex-col gap-4">
+    <section
+      aria-labelledby="trend-heading"
+      className="flex flex-col gap-4 rounded-xl border border-line bg-surface p-5 sm:p-6"
+    >
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
         <div>
           <h2 id="trend-heading" className="font-display text-lg font-semibold">
@@ -121,7 +124,7 @@ export function RateTrend({ base, quote }: { base: string; quote: string }) {
         ) : (
           <div
             style={{ height: HEIGHT }}
-            className="rounded-lg bg-surface"
+            className="rounded-lg bg-paper"
             aria-busy
           />
         )}
@@ -148,7 +151,7 @@ export function RateTrend({ base, quote }: { base: string; quote: string }) {
           </summary>
           <div className="mt-2 max-h-64 overflow-y-auto rounded-lg border border-line">
             <table className="w-full text-left">
-              <thead className="sticky top-0 bg-paper text-muted">
+              <thead className="sticky top-0 bg-surface text-muted">
                 <tr>
                   <th className="px-3 py-2 font-medium">Date</th>
                   <th className="px-3 py-2 text-right font-medium">
@@ -344,7 +347,7 @@ function Chart({
                 cx={geo.x(last)}
                 cy={geo.y(points[last].rate)}
                 r={4}
-                className="fill-[var(--chart-line)] stroke-paper"
+                className="fill-[var(--chart-line)] stroke-surface"
                 strokeWidth={2}
               />
             )}
@@ -362,7 +365,7 @@ function Chart({
                   cx={geo.x(shown)}
                   cy={geo.y(points[shown].rate)}
                   r={4.5}
-                  className="fill-[var(--chart-line)] stroke-paper"
+                  className="fill-[var(--chart-line)] stroke-surface"
                   strokeWidth={2}
                 />
               </>
@@ -373,7 +376,7 @@ function Chart({
 
       {geo && shown !== null && (
         <div
-          className="pointer-events-none absolute top-0 z-10 rounded-md border border-line bg-paper px-2.5 py-1.5 text-xs shadow-sm"
+          className="pointer-events-none absolute top-0 z-10 rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs shadow-sm"
           style={{
             left: Math.min(Math.max(geo.x(shown) - 60, 0), width - 132),
           }}
