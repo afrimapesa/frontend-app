@@ -6,13 +6,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { SocialLinks } from "@/components/social-links";
+import { BRAND } from "@/lib/site";
+
 gsap.registerPlugin(useGSAP);
 
 export const NAV_LINKS = [
   { href: "/", label: "Send money" },
-  { href: "/bank-rates", label: "Bank rates" },
-  { href: "/bonds", label: "Government bonds" },
-  { href: "/insights", label: "Insights" },
+  { href: "/bank-rates", label: "Save money" },
+  { href: "/bonds", label: "Invest in bonds" },
+  { href: "/insights", label: "News & insights" },
 ] as const;
 
 export function SiteNav() {
@@ -33,13 +36,16 @@ export function SiteNav() {
       >
         <Link
           href="/"
-          className="flex items-center gap-2.5 font-display text-xl font-bold tracking-tight"
+          className="flex items-center gap-2.5 font-display text-xl font-bold tracking-[0.08em]"
         >
           <Mark />
-          AfrimaPesa
+          {BRAND}
         </Link>
-        <DesktopLinks activeIndex={activeIndex} />
-        <MobileMenu activeIndex={activeIndex} />
+        <div className="flex items-center gap-4">
+          <DesktopLinks activeIndex={activeIndex} />
+          <SocialLinks className="hidden border-l border-line pl-3 md:flex" />
+          <MobileMenu activeIndex={activeIndex} />
+        </div>
       </nav>
     </header>
   );
@@ -223,6 +229,7 @@ function MobileMenu({ activeIndex }: { activeIndex: number }) {
             </li>
           ))}
         </ul>
+        <SocialLinks className="-ml-2" />
         <p data-sheet-foot className="text-sm text-paper/70">
           Remittance, bank rates and sovereign yields for Nigeria, Ghana, Kenya,
           Tanzania, Egypt and South Africa.

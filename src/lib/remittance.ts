@@ -5,6 +5,7 @@
 export type Quote = {
   provider: string; // slug
   name: string;
+  website: string; // provider's site, for the outbound link
   fxRate: number; // receiving units per 1 sending unit
   feeFlat: number;
   feePct: number; // fraction: 0.015 = 1.5%

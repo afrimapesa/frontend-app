@@ -63,6 +63,14 @@ export type Provider = {
   corridors: string[];
 };
 
+export type FxHistory = {
+  base: string;
+  quote: string;
+  days: number;
+  derived: boolean; // computed as a cross rate through USD
+  points: { date: string; rate: string }[];
+};
+
 export const api = {
   health: () => get<Health>("/health/"),
   currencies: () => get<Currency[]>("/v1/reference/currencies/"),
@@ -70,4 +78,13 @@ export const api = {
     get<Country[]>(`/v1/reference/countries/${role ? `?role=${role}` : ""}`),
   corridors: () => get<Corridor[]>("/v1/reference/corridors/"),
   providers: () => get<Provider[]>("/v1/reference/providers/"),
+  fxHistory: (
+    base: string,
+    quote: string,
+    days: number,
+    signal?: AbortSignal,
+  ) =>
+    get<FxHistory>(`/v1/fx/history/?base=${base}&quote=${quote}&days=${days}`, {
+      signal,
+    }),
 };

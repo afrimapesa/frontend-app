@@ -1,11 +1,11 @@
 import { ComingSoon } from "@/components/coming-soon";
 
-export const metadata = { title: "Bank rates | AfrimaPesa" };
+export const metadata = { title: "Bank rates | AFRIMAPESA" };
 
 export default function BankRatesPage() {
   return (
     <ComingSoon
-      title="Savings and loan rates, bank by bank"
+      title="Save money: savings and loan rates, bank by bank"
       when="Arriving late November 2026"
     >
       Fixed deposit, savings, personal loan and mortgage rates from around 30

@@ -13,6 +13,7 @@
   --loss: #c8204e;
   --loss-soft: #ff8aa8;
   --fee: #8a97ab;
+  --chart-line: #12a37f; /* validated: dataviz light band */
 }
 
 @media (prefers-color-scheme: dark) {
@@ -27,6 +28,7 @@
     --loss: #ff6f91;
     --loss-soft: #ff8aa8;
     --fee: #6c7b91;
+    --chart-line: #18a882; /* validated: dataviz dark band */
   }
 }
 

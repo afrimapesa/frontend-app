@@ -7,19 +7,13 @@ import { useCallback, useMemo, useRef, useState } from "react";
 
 import { AnimatedNumber } from "@/components/animated-number";
 import { Odometer } from "@/components/odometer";
+import { RateTrend } from "@/components/rate-trend";
 import type { Country, Provider } from "@/lib/api";
-import { currencySymbol, duration, money, rate } from "@/lib/format";
+import { duration, money, rate } from "@/lib/format";
 import { type RankedQuote, rankQuotes } from "@/lib/remittance";
 import { sampleMidRate, sampleQuotes } from "@/lib/sample-quotes";
 
 gsap.registerPlugin(useGSAP, Flip);
-
-// Reads naturally in "Send £200 from the UK to Nigeria".
-const SENDING_LABELS: Record<string, string> = {
-  US: "the US",
-  GB: "the UK",
-  EU: "the EU",
-};
 
 type Props = {
   sending: Country[];
@@ -146,170 +140,180 @@ export function RemittanceCompare({ sending, receiving, providers }: Props) {
   const worst = ranked.at(-1);
 
   return (
-    <div className="grid gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:gap-14 xl:gap-20">
-      <div className="flex flex-col gap-8 lg:sticky lg:top-8 lg:self-start">
-        <form
-          className="font-display text-[clamp(1.9rem,5.2vw,3.6rem)] leading-[1.15] font-semibold tracking-tight text-balance lg:text-[clamp(2.2rem,3.4vw,3.4rem)]"
-          onSubmit={(e) => e.preventDefault()}
+    // Mobile order: form, best deal, rankings, trend. Desktop: two columns, with the
+    // wrappers switching from `contents` (children join the outer flow) to flex columns.
+    <div className="flex flex-col gap-10 lg:grid lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:gap-12 xl:gap-16">
+      <div className="contents lg:flex lg:flex-col lg:gap-12">
+        <div className="order-1 flex flex-col gap-6 lg:order-none">
+          <header className="flex flex-col gap-2">
+            <h1 className="font-display text-[clamp(1.9rem,4vw,2.9rem)] leading-[1.1] font-bold tracking-tight text-balance">
+              Get the most for your money to Africa
+            </h1>
+            <p className="text-muted sm:text-lg">
+              Compare exchange rates and fees from {servingCount || 15}{" "}
+              providers, ranked by what your recipient actually receives.
+            </p>
+          </header>
+
+          <form
+            className="grid gap-5 rounded-xl border border-line p-5 sm:grid-cols-2 sm:p-6"
+            onSubmit={(e) => e.preventDefault()}
+          >
+            <Field id="send" label="Sending from">
+              <Select
+                id="send"
+                value={sendCode}
+                onChange={(v) => {
+                  capture();
+                  setSendCode(v);
+                }}
+                options={sending.map((c) => ({
+                  value: c.code,
+                  label: `${c.name} (${c.currency})`,
+                }))}
+              />
+            </Field>
+            <Field id="receive" label="Receiving in">
+              <Select
+                id="receive"
+                value={receiveCode}
+                onChange={(v) => {
+                  capture();
+                  setReceiveCode(v);
+                }}
+                options={receiving.map((c) => ({
+                  value: c.code,
+                  label: `${c.name} (${c.currency})`,
+                }))}
+              />
+            </Field>
+            <Field id="amount" label="Amount to send" className="sm:col-span-2">
+              <div className="flex items-center rounded-lg border border-line bg-paper focus-within:border-ink focus-within:ring-1 focus-within:ring-ink">
+                <input
+                  id="amount"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  placeholder="Enter amount"
+                  value={amountText}
+                  onChange={(e) => {
+                    capture();
+                    setAmountText(e.target.value.replace(/[^\d.,]/g, ""));
+                  }}
+                  className="tabular min-w-0 flex-1 bg-transparent px-4 py-3 font-display text-2xl font-semibold outline-none placeholder:text-base placeholder:font-normal placeholder:text-muted"
+                />
+                <span className="px-4 text-sm font-semibold text-muted">
+                  {send.currency}
+                </span>
+              </div>
+            </Field>
+          </form>
+        </div>
+
+        <section
+          aria-labelledby="results-heading"
+          className="order-3 flex flex-col gap-5 lg:order-none"
         >
-          <label htmlFor="amount">Send </label>
-          <span className="inline-flex items-baseline border-b-[3px] border-ink">
-            <span aria-hidden>{currencySymbol(send.currency)}</span>
-            <input
-              id="amount"
-              inputMode="decimal"
-              autoComplete="off"
-              value={amountText}
-              onChange={(e) => {
-                capture();
-                setAmountText(e.target.value.replace(/[^\d.,]/g, ""));
-              }}
-              className="amount-input tabular bg-transparent outline-none"
-              style={
-                {
-                  "--len": Math.max(amountText.length, 1),
-                } as React.CSSProperties
-              }
-              aria-describedby="amount-help"
-            />
-          </span>{" "}
-          <label htmlFor="send">from</label>{" "}
-          <InlineSelect
-            id="send"
-            value={sendCode}
-            onChange={(v) => {
-              capture();
-              setSendCode(v);
-            }}
-            options={sending.map((c) => ({
-              value: c.code,
-              label: SENDING_LABELS[c.code] ?? c.name,
-            }))}
-          />{" "}
-          <label htmlFor="receive">to</label>{" "}
-          <InlineSelect
-            id="receive"
-            value={receiveCode}
-            onChange={(v) => {
-              capture();
-              setReceiveCode(v);
-            }}
-            options={receiving.map((c) => ({ value: c.code, label: c.name }))}
-          />
-          <p id="amount-help" className="sr-only">
-            Amount in {send.currency}
-          </p>
-        </form>
+          <div>
+            <h2
+              id="results-heading"
+              className="font-display text-xl font-semibold"
+            >
+              Top provider rankings
+            </h2>
+            {ranked.length > 0 && (
+              <p className="text-sm text-muted">
+                Top {ranked.length} of {servingCount}, ranked by what your
+                recipient gets
+              </p>
+            )}
+          </div>
 
-        {best && amount > 0 && (
-          <BestDeal
-            best={best}
-            midPayout={midPayout}
-            sendCurrency={send.currency}
-            receiveCurrency={receive.currency}
-            receiveCountry={receive.name}
-            formatPayout={fmtReceive}
-          />
-        )}
+          {!(amount > 0) ? (
+            <p className="rounded-lg border border-dashed border-line p-6 text-muted">
+              Enter an amount to compare providers.
+            </p>
+          ) : ranked.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-line p-6 text-muted">
+              No provider we track can send {money(amount, send.currency)} on
+              this route. Try a larger amount.
+            </p>
+          ) : (
+            <div className="relative">
+              <div className={`${ROW_GRID} pb-3 text-xs text-muted sm:text-sm`}>
+                <span />
+                <span className="pr-2 text-right">
+                  Mid-market{" "}
+                  <span className="tabular text-ink">
+                    {money(midPayout, receive.currency)}
+                  </span>
+                </span>
+                <span className="text-right">Recipient gets</span>
+              </div>
+              {/* The finish line: one dashed rule through every track. */}
+              <span
+                aria-hidden
+                className={`pointer-events-none absolute top-7 bottom-0 border-r-2 border-dashed border-ink/35 ${FINISH_LINE}`}
+              />
+              <ol ref={list} className="border-b border-line">
+                {ranked.map((r) => (
+                  <ResultRow
+                    key={r.provider}
+                    result={r}
+                    isBest={r === best}
+                    x={trackX(r.netPayout)}
+                    sendCurrency={send.currency}
+                    formatPayout={fmtReceive}
+                    formatLoss={fmtLoss}
+                    loss={Math.max(0, midPayout - r.netPayout)}
+                  />
+                ))}
+              </ol>
+            </div>
+          )}
 
-        <div className="flex flex-col gap-1 border-l-[3px] border-line pl-4 text-sm text-muted sm:text-base">
-          <p>
-            Mid-market rate:{" "}
-            <span className="tabular font-medium text-ink">
-              1 {send.currency} = {rate(mid)} {receive.currency}
-            </span>
-          </p>
-          {midPayout > 0 && (
-            <p>
-              At that rate with no fees, your recipient would get{" "}
+          {best && worst && best !== worst && (
+            <p className="text-sm text-muted sm:text-base">
+              Choosing {best.name} over {worst.name} puts{" "}
               <span className="tabular font-medium text-ink">
-                {money(midPayout, receive.currency)}
-              </span>
-              . Every provider delivers less. The gap is what the transfer
-              really costs you.
+                {money(best.netPayout - worst.netPayout, receive.currency)}
+              </span>{" "}
+              more in your recipient&apos;s hands.
             </p>
           )}
-        </div>
+
+          <p className="rounded-md border border-dashed border-line px-4 py-3 text-sm text-muted">
+            Preview with sample rates. Countries and provider coverage are live;
+            exchange rates and fees are illustrative until live quote collection
+            is switched on.
+          </p>
+        </section>
       </div>
 
-      <section
-        aria-labelledby="results-heading"
-        className="flex flex-col gap-5"
-      >
-        <h2
-          id="results-heading"
-          className="text-sm font-medium text-muted sm:text-base"
-        >
-          {ranked.length > 0
-            ? `Top ${ranked.length} of ${servingCount} providers, ranked by what your recipient gets`
-            : "Providers on this route"}
-        </h2>
-
-        {!(amount > 0) ? (
-          <p className="rounded-lg border border-dashed border-line p-6 text-muted">
-            Enter an amount to compare providers.
-          </p>
-        ) : ranked.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-line p-6 text-muted">
-            No provider we track can send {money(amount, send.currency)} on this
-            route. Try a larger amount.
-          </p>
-        ) : (
-          <div className="relative">
-            <div className={`${ROW_GRID} pb-3 text-xs text-muted sm:text-sm`}>
-              <span />
-              <span className="pr-2 text-right">
-                Mid-market{" "}
-                <span className="tabular text-ink">
-                  {money(midPayout, receive.currency)}
-                </span>
-              </span>
-              <span className="text-right">Recipient gets</span>
-            </div>
-            {/* The finish line: one dashed rule through every track. */}
-            <span
-              aria-hidden
-              className={`pointer-events-none absolute top-7 bottom-0 border-r-2 border-dashed border-ink/35 ${FINISH_LINE}`}
+      <aside className="contents lg:sticky lg:top-6 lg:flex lg:flex-col lg:gap-10 lg:self-start">
+        {best && amount > 0 && (
+          <div className="order-2 lg:order-none">
+            <BestDeal
+              best={best}
+              mid={mid}
+              midPayout={midPayout}
+              sendCurrency={send.currency}
+              receiveCurrency={receive.currency}
+              receiveCountry={receive.name}
+              formatPayout={fmtReceive}
             />
-            <ol ref={list} className="border-b border-line">
-              {ranked.map((r) => (
-                <ResultRow
-                  key={r.provider}
-                  result={r}
-                  isBest={r === best}
-                  x={trackX(r.netPayout)}
-                  sendCurrency={send.currency}
-                  formatPayout={fmtReceive}
-                  formatLoss={fmtLoss}
-                  loss={Math.max(0, midPayout - r.netPayout)}
-                />
-              ))}
-            </ol>
           </div>
         )}
-
-        {best && worst && best !== worst && (
-          <p className="text-sm text-muted sm:text-base">
-            Choosing {best.name} over {worst.name} puts{" "}
-            <span className="tabular font-medium text-ink">
-              {money(best.netPayout - worst.netPayout, receive.currency)}
-            </span>{" "}
-            more in your recipient&apos;s hands.
-          </p>
-        )}
-
-        <p className="rounded-md border border-dashed border-line px-4 py-3 text-sm text-muted">
-          Preview with sample rates. Countries and provider coverage are live;
-          exchange rates and fees are illustrative until live quote collection
-          is switched on.
-        </p>
-      </section>
+        <div className="order-4 lg:order-none">
+          <RateTrend base={send.currency} quote={receive.currency} />
+        </div>
+      </aside>
     </div>
   );
 }
 
 function BestDeal({
   best,
+  mid,
   midPayout,
   sendCurrency,
   receiveCurrency,
@@ -317,6 +321,7 @@ function BestDeal({
   formatPayout,
 }: {
   best: RankedQuote;
+  mid: number;
   midPayout: number;
   sendCurrency: string;
   receiveCurrency: string;
@@ -348,12 +353,12 @@ function BestDeal({
     <section
       ref={card}
       aria-live="polite"
-      className="relative overflow-hidden rounded-[1.25rem] bg-ink px-5 py-7 text-paper sm:px-9 sm:py-10"
+      className="relative overflow-hidden rounded-2xl bg-black px-6 py-7 text-white sm:px-8 sm:py-8"
     >
       <svg
         aria-hidden
         viewBox="0 0 200 200"
-        className="pointer-events-none absolute -top-16 -right-16 hidden size-72 opacity-[0.12] sm:block"
+        className="pointer-events-none absolute -top-20 -right-20 hidden size-72 text-white opacity-[0.09] sm:block"
       >
         <circle
           cx="80"
@@ -363,31 +368,75 @@ function BestDeal({
           stroke="currentColor"
           strokeWidth="2"
         />
-        <circle cx="120" cy="100" r="70" fill="var(--accent)" />
+        <circle
+          cx="120"
+          cy="100"
+          r="70"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        />
       </svg>
-      <p className="relative text-base text-paper/75 sm:text-lg">
+      <p className="relative text-white/75">
         Best deal right now: with{" "}
-        <span className="font-semibold text-paper">{best.name}</span>, your
+        <span className="font-semibold text-white">{best.name}</span>, your
         recipient in {receiveCountry} gets
       </p>
       <Odometer
         text={formatPayout(best.netPayout)}
-        className="relative mt-3 font-display text-[clamp(2.5rem,10vw,5.75rem)] font-semibold tracking-tight tabular lg:text-[clamp(2.6rem,4.4vw,4.6rem)]"
+        className="relative mt-3 font-display text-[clamp(2.4rem,9vw,4.25rem)] font-bold tracking-tight tabular"
       />
-      <p className="relative mt-5 text-sm text-paper/75 sm:text-base">
+      <dl className="relative mt-6 grid grid-cols-2 gap-4 border-t border-white/20 pt-5">
+        <div>
+          <dt className="text-xs text-white/65 sm:text-sm">Mid-market rate</dt>
+          <dd className="tabular mt-1 font-semibold">
+            1 {sendCurrency} = {rate(mid)} {receiveCurrency}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-white/65 sm:text-sm">
+            Mid-market payout
+          </dt>
+          <dd className="tabular mt-1 font-semibold">
+            {formatPayout(midPayout)}
+          </dd>
+        </div>
+      </dl>
+      <p className="relative mt-4 text-sm text-white/75">
         <AnimatedNumber
           value={lost}
           format={formatPayout}
-          className="tabular font-semibold text-loss-soft"
+          className="tabular font-semibold text-white"
         />{" "}
-        lost on the way ({money(best.totalCost, sendCurrency)} of what you
-        send), compared with the {receiveCurrency} mid-market rate.
+        lost on the way ({money(best.totalCost, sendCurrency)} of what you send)
+        compared with the mid-market payout.
       </p>
     </section>
   );
 }
 
-function InlineSelect({
+function Field({
+  id,
+  label,
+  className = "",
+  children,
+}: {
+  id: string;
+  label: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`flex flex-col gap-1.5 ${className}`}>
+      <label htmlFor={id} className="text-sm font-semibold">
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function Select({
   id,
   value,
   onChange,
@@ -398,24 +447,13 @@ function InlineSelect({
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
 }) {
-  // A native <select> is as wide as its longest option; show the chosen label instead and
-  // lay the (invisible) select over it so keyboard, screen reader and mobile pickers still work.
-  const label = options.find((o) => o.value === value)?.label;
   return (
-    <span className="relative inline-flex items-baseline gap-[0.15em] border-b-[3px] border-ink has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-4 has-[:focus-visible]:outline-accent">
-      <span aria-hidden>{label}</span>
-      <svg
-        aria-hidden
-        viewBox="0 0 12 8"
-        className="w-[0.42em] shrink-0 fill-current text-muted"
-      >
-        <path d="M6 8 0 0h12z" />
-      </svg>
+    <div className="relative">
       <select
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="absolute inset-0 cursor-pointer appearance-none opacity-0"
+        className="w-full cursor-pointer appearance-none rounded-lg border border-line bg-paper py-3 pr-10 pl-4 font-medium outline-none focus:border-ink focus:ring-1 focus:ring-ink"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
@@ -423,7 +461,14 @@ function InlineSelect({
           </option>
         ))}
       </select>
-    </span>
+      <svg
+        aria-hidden
+        viewBox="0 0 12 8"
+        className="pointer-events-none absolute top-1/2 right-4 w-2.5 -translate-y-1/2 fill-current text-muted"
+      >
+        <path d="M6 8 0 0h12z" />
+      </svg>
+    </div>
   );
 }
 
@@ -530,6 +575,30 @@ function ResultRow({
           format={formatLoss}
           className="tabular text-xs font-medium text-loss sm:text-sm"
         />
+        {r.website && (
+          <a
+            href={r.website}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Go to ${r.name} (opens in a new tab)`}
+            className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-semibold transition-colors hover:border-ink hover:bg-ink hover:text-paper sm:text-sm"
+          >
+            <span className="sm:hidden">Visit</span>
+            <span className="hidden sm:inline">Go to {r.name}</span>
+            <svg
+              aria-hidden
+              viewBox="0 0 16 16"
+              className="size-3.5 fill-none stroke-current"
+              strokeWidth="1.8"
+            >
+              <path
+                d="M6 3h7v7M13 3 4 12"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </a>
+        )}
       </div>
     </li>
   );

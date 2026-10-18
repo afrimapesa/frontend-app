@@ -16,7 +16,7 @@ const text = Red_Hat_Text({
 });
 
 export const metadata: Metadata = {
-  title: "AfrimaPesa",
+  title: "AFRIMAPESA",
   description: "Cross-border financial comparison and intelligence for Africa.",
 };
 

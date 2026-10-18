@@ -50,7 +50,7 @@ function jitter(seed: string): number {
 }
 
 export function sampleQuotes(
-  providers: { slug: string; name: string }[],
+  providers: { slug: string; name: string; website: string }[],
   send: string,
   receive: string,
 ): Quote[] {
@@ -66,6 +66,7 @@ export function sampleQuotes(
       {
         provider: p.slug,
         name: p.name,
+        website: p.website,
         fxRate: Number((mid * (1 - margin)).toFixed(4)),
         feeFlat: profile.flat,
         feePct: profile.pct,
@@ -74,4 +75,33 @@ export function sampleQuotes(
       },
     ];
   });
+}
+
+// Deterministic daily random walk ending at today's sample mid rate (for the trend chart
+// until real history is imported). Dates are relative to `today` (YYYY-MM-DD).
+export function sampleHistory(
+  send: string,
+  receive: string,
+  days: number,
+  today: string,
+): { date: string; rate: number }[] {
+  const end = sampleMidRate(send, receive);
+  let seed = 0;
+  for (const ch of send + receive) seed = (seed * 31 + ch.charCodeAt(0)) | 0;
+  const rand = () => {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    return seed / 0x7fffffff;
+  };
+  const steps = Array.from({ length: days - 1 }, () => (rand() - 0.48) * 0.006);
+  const points: { date: string; rate: number }[] = [];
+  let rate = end;
+  const t = new Date(`${today}T00:00:00Z`).getTime();
+  for (let i = 0; i < days; i++) {
+    points.unshift({
+      date: new Date(t - i * 86_400_000).toISOString().slice(0, 10),
+      rate,
+    });
+    if (i < steps.length) rate = rate / (1 + steps[i]);
+  }
+  return points;
 }

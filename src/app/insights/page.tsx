@@ -1,6 +1,6 @@
 import { ComingSoon } from "@/components/coming-soon";
 
-export const metadata = { title: "Insights | AfrimaPesa" };
+export const metadata = { title: "Insights | AFRIMAPESA" };
 
 export default function InsightsPage() {
   return (

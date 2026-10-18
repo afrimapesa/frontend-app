@@ -8,7 +8,7 @@ import { api } from "@/lib/api";
 export default function Home() {
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-12 sm:px-6">
-      <h1 className="text-3xl font-semibold tracking-tight">AfrimaPesa</h1>
+      <h1 className="text-3xl font-semibold tracking-tight">AFRIMAPESA</h1>
       <p className="mt-2 text-zinc-600 dark:text-zinc-400">
         Cross-border financial comparison for Africa — frontend dev build.
       </p>
