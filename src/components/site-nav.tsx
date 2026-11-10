@@ -5,7 +5,7 @@ import gsap from "gsap";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 
 import { SocialLinks } from "@/components/social-links";
 import { BRAND } from "@/lib/site";
@@ -20,14 +20,6 @@ export const NAV_LINKS = [
 ] as const;
 
 export function SiteNav() {
-  const pathname = usePathname();
-  const activeIndex = Math.max(
-    0,
-    NAV_LINKS.findIndex((l) =>
-      l.href === "/" ? pathname === "/" : pathname.startsWith(l.href),
-    ),
-  );
-
   return (
     // Solid background on purpose: backdrop-filter would trap the fixed mobile sheet inside the header.
     <header className="relative z-40 border-b border-line bg-paper">
@@ -42,13 +34,31 @@ export function SiteNav() {
           <Mark />
           {BRAND}
         </Link>
-        <div className="flex items-center gap-4">
-          <DesktopLinks activeIndex={activeIndex} />
-          <SocialLinks className="hidden border-l border-line pl-3 md:flex" />
-          <MobileMenu activeIndex={activeIndex} />
-        </div>
+        {/* The current URL is request data on dynamic routes: read it inside Suspense so
+            the rest of the page can still be prerendered. */}
+        <Suspense fallback={<NavItems activeIndex={-1} />}>
+          <ActiveNavItems />
+        </Suspense>
       </nav>
     </header>
+  );
+}
+
+function ActiveNavItems() {
+  const pathname = usePathname();
+  const activeIndex = NAV_LINKS.findIndex((l) =>
+    l.href === "/" ? pathname === "/" : pathname.startsWith(l.href),
+  );
+  return <NavItems activeIndex={activeIndex} />;
+}
+
+function NavItems({ activeIndex }: { activeIndex: number }) {
+  return (
+    <div className="flex items-center gap-4">
+      <DesktopLinks activeIndex={activeIndex} />
+      <SocialLinks className="hidden border-l border-line pl-3 md:flex" />
+      <MobileMenu activeIndex={activeIndex} />
+    </div>
   );
 }
 
@@ -75,11 +85,17 @@ function DesktopLinks({ activeIndex }: { activeIndex: number }) {
     // Query the <li>s, not children: the marker itself is the list's first child.
     const item =
       list.current?.querySelectorAll<HTMLElement>(":scope > li")[index];
-    if (!item || !marker.current) return;
+    if (!marker.current) return;
+    if (!item) {
+      // No active link (a page outside the main nav, or before the URL is known).
+      gsap.to(marker.current, { autoAlpha: 0, duration: 0.2, overwrite: true });
+      return;
+    }
     const reduce = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
     gsap.to(marker.current, {
+      autoAlpha: 1,
       x: item.offsetLeft,
       width: item.offsetWidth,
       duration: instant || reduce ? 0 : 0.45,

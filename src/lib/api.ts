@@ -101,6 +101,79 @@ export type FxHistory = {
   points: { date: string; rate: string }[];
 };
 
+export type SectionKey =
+  "markets" | "currencies" | "remittance" | "bonds" | "banking" | "economy";
+
+export type ArticleKind = "news" | "analysis" | "opinion" | "explainer";
+
+export type ArticleCard = {
+  slug: string;
+  title: string;
+  standfirst: string;
+  kind: ArticleKind;
+  kind_label: string;
+  section: { key: SectionKey; label: string };
+  countries: string[];
+  currency: string | null;
+  author: { slug: string; name: string; role: string } | null;
+  cover_image_url: string;
+  cover_credit: string;
+  published_at: string;
+  updated_at: string;
+  reading_minutes: number;
+  is_featured: boolean;
+  sample: boolean; // placeholder content for the preview
+};
+
+export type Advert = {
+  advertiser: string;
+  placement: "leaderboard" | "rail" | "inline";
+  image_url: string;
+  click_url: string;
+  alt_text: string;
+};
+
+export type FrontPage = {
+  as_of: string;
+  sample: boolean;
+  lead: ArticleCard | null;
+  top: ArticleCard[];
+  latest: ArticleCard[];
+  sections: { key: SectionKey; label: string; articles: ArticleCard[] }[];
+  commentary: ArticleCard[];
+  explainers: ArticleCard[];
+  ads: Record<Advert["placement"], Advert | null>;
+};
+
+export type ArticlePage = {
+  as_of: string;
+  article: ArticleCard & { body: string };
+  related: ArticleCard[];
+};
+
+export type ArticleList = {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: ArticleCard[];
+};
+
+export type FxMovers = {
+  base: string;
+  days: number;
+  sample: boolean;
+  movers: {
+    currency: string;
+    name: string;
+    country: string;
+    rate: string; // 1 base = rate currency
+    change_1d: string | null; // fractional change in the rate
+    change_period: string | null;
+    sample: boolean;
+    points: { date: string; rate: string }[];
+  }[];
+};
+
 export const api = {
   health: () => get<Health>("/health/"),
   currencies: () => get<Currency[]>("/v1/reference/currencies/"),
@@ -127,4 +200,15 @@ export const api = {
     get<FxHistory>(`/v1/fx/history/?base=${base}&quote=${quote}&days=${days}`, {
       signal,
     }),
+  fxMovers: (base = "USD", days = 30) =>
+    get<FxMovers>(`/v1/fx/movers/?base=${base}&days=${days}`),
+  newsFront: () => get<FrontPage>("/v1/insights/front/"),
+  article: (slug: string) =>
+    get<ArticlePage>(`/v1/insights/articles/${encodeURIComponent(slug)}/`),
+  articles: (params: { section?: string; kind?: string; page?: number }) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(params))
+      if (v !== undefined) q.set(k, String(v));
+    return get<ArticleList>(`/v1/insights/articles/?${q}`);
+  },
 };
