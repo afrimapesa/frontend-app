@@ -177,8 +177,8 @@ function Sparkline({ points, up }: { points: Mover["points"]; up: boolean }) {
   const w = 72;
   const h = 24;
   if (points.length < 2) return <span style={{ width: w }} />;
-  // Plot the currency's strength (inverse of the rate), so up on the line means stronger.
-  const values = points.map((p) => 1 / Number(p.rate));
+  // Same axis as the big chart (units per 1 base); colour says stronger (green) or weaker.
+  const values = points.map((p) => Number(p.rate));
   const lo = Math.min(...values);
   const hi = Math.max(...values);
   const d = values
