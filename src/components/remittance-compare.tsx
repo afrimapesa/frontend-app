@@ -3,62 +3,109 @@
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { Flip } from "gsap/Flip";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AnimatedNumber } from "@/components/animated-number";
 import { Odometer } from "@/components/odometer";
 import { ProviderLogo } from "@/components/provider-logo";
 import { RateTrend } from "@/components/rate-trend";
-import type { Country, Provider } from "@/lib/api";
+import { api, type Country } from "@/lib/api";
 import { duration, money, rate } from "@/lib/format";
-import { type RankedQuote, rankQuotes } from "@/lib/remittance";
-import { sampleMidRate, sampleQuotes } from "@/lib/sample-quotes";
+import {
+  compareKey,
+  DEFAULT_AMOUNT,
+  DEFAULT_RECEIVE,
+  DEFAULT_SEND,
+  type LoadedComparison,
+  MAX_AMOUNT,
+} from "@/lib/compare";
+import { type RankedQuote, toRankedQuote } from "@/lib/remittance";
 
 gsap.registerPlugin(useGSAP, Flip);
 
 type Props = {
   sending: Country[];
   receiving: Country[];
-  providers: Provider[];
+  /** First comparison, fetched on the server so the rankings show without a loading state. */
+  initial: LoadedComparison | null;
 };
 
-export function RemittanceCompare({ sending, receiving, providers }: Props) {
-  const [amountText, setAmountText] = useState("200");
+export function RemittanceCompare({ sending, receiving, initial }: Props) {
+  const [amountText, setAmountText] = useState(DEFAULT_AMOUNT);
   const [sendCode, setSendCode] = useState(
-    sending.find((c) => c.code === "GB")?.code ?? sending[0].code,
+    sending.find((c) => c.code === DEFAULT_SEND)?.code ?? sending[0].code,
   );
   const [receiveCode, setReceiveCode] = useState(
-    receiving.find((c) => c.code === "NG")?.code ?? receiving[0].code,
+    receiving.find((c) => c.code === DEFAULT_RECEIVE)?.code ??
+      receiving[0].code,
   );
+  const [loaded, setLoaded] = useState<LoadedComparison | null>(initial);
+  const [failedKey, setFailedKey] = useState<string | null>(null);
 
   const send = sending.find((c) => c.code === sendCode)!;
-  const receive = receiving.find((c) => c.code === receiveCode)!;
   const amount = Number(amountText.replace(/,/g, ""));
-  const corridorCode = `${send.code}-${send.currency}-${receive.code}-${receive.currency}`;
+  const validAmount = amount > 0 && amount <= MAX_AMOUNT;
+  const amountParam = validAmount ? amount.toFixed(2) : "";
+  const key = compareKey(sendCode, receiveCode, amountParam);
 
-  const { mid, ranked, servingCount } = useMemo(() => {
-    const serving = providers.filter((p) => p.corridors.includes(corridorCode));
-    const mid = sampleMidRate(send.currency, receive.currency);
-    return {
-      mid,
-      ranked: rankQuotes(
-        sampleQuotes(serving, send.currency, receive.currency),
-        amount,
-        mid,
-      ),
-      servingCount: serving.length,
-    };
-  }, [providers, corridorCode, send.currency, receive.currency, amount]);
-
-  // Flip: record row positions before any input change, animate to new order after render.
+  // Flip: record row positions before any input change  // Flip: record row positions before any input change, animate to new order after render.
   const list = useRef<HTMLOListElement>(null);
   const flipState = useRef<Flip.FlipState | null>(null);
-  const capture = () => {
+  const capture = useCallback(() => {
     if (list.current)
       flipState.current = Flip.getState(
         list.current.querySelectorAll("[data-flip-id]"),
       );
-  };
+  }, []);
+
+  // Ask the backend for the ranking; typing is debounced so each keystroke isn't a request.
+  useEffect(() => {
+    if (!validAmount || loaded?.key === key) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      api
+        .compare(sendCode, receiveCode, amountParam, controller.signal)
+        .then((data) => {
+          capture();
+          setFailedKey(null);
+          setLoaded({ key, data, fetchedAt: Date.parse(data.as_of) });
+        })
+        .catch((e: unknown) => {
+          if ((e as Error).name !== "AbortError") setFailedKey(key);
+        });
+    }, 250);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [
+    key,
+    validAmount,
+    loaded?.key,
+    sendCode,
+    receiveCode,
+    amountParam,
+    capture,
+  ]);
+
+  // What's on screen is always one consistent response, even while the next one loads.
+  const data = loaded?.data ?? null;
+  const pending = validAmount && loaded?.key !== key && failedKey !== key;
+  const ranked = useMemo<RankedQuote[]>(
+    () =>
+      loaded
+        ? loaded.data.results.map((r) => toRankedQuote(r, loaded.fetchedAt))
+        : [],
+    [loaded],
+  );
+  const corridorCode = data?.corridor ?? "";
+  const sendCurrency = data?.send_currency ?? send.currency;
+  const receiveCurrency = data?.receive_currency ?? "";
+  const receiveCountry =
+    receiving.find((c) => c.currency === receiveCurrency)?.name ?? "";
+  const mid = data?.mid_rate ? Number(data.mid_rate) : null;
+  const midPayout = data?.mid_payout ? Number(data.mid_payout) : 0;
+  const servingCount = data?.providers_on_route ?? 0;
   const order = ranked.map((r) => r.provider).join(",");
 
   useGSAP(
@@ -110,14 +157,14 @@ export function RemittanceCompare({ sending, receiving, providers }: Props) {
   );
 
   const fmtReceive = useCallback(
-    (n: number) => money(n, receive.currency),
-    [receive.currency],
+    (n: number) => (receiveCurrency ? money(n, receiveCurrency) : ""),
+    [receiveCurrency],
   );
   const fmtLoss = useCallback(
-    (n: number) => `\u2212${money(n, receive.currency)}`,
-    [receive.currency],
+    (n: number) =>
+      receiveCurrency ? `\u2212${money(n, receiveCurrency)}` : "",
+    [receiveCurrency],
   );
-  const midPayout = amount > 0 ? amount * mid : 0;
   // Track scale: the finish line is the mid-market payout; the worst provider shown sits
   // about a quarter of the way along, so differences between providers stay visible.
   const worstGap = Math.max(...ranked.map((r) => midPayout - r.netPayout), 0);
@@ -214,23 +261,41 @@ export function RemittanceCompare({ sending, receiving, providers }: Props) {
             )}
           </div>
 
-          {!(amount > 0) ? (
+          {!validAmount ? (
             <p className="rounded-lg border border-dashed border-line p-6 text-muted">
-              Enter an amount to compare providers.
+              Enter an amount up to {MAX_AMOUNT.toLocaleString("en-GB")} to
+              compare providers.
+            </p>
+          ) : failedKey === key ? (
+            <p className="rounded-lg border border-dashed border-line p-6 text-muted">
+              Couldn&apos;t load provider quotes. Check your connection and try
+              again.
+            </p>
+          ) : !data ? (
+            <div
+              aria-busy
+              className="h-64 animate-pulse rounded-xl bg-surface"
+            />
+          ) : mid === null ? (
+            <p className="rounded-lg border border-dashed border-line p-6 text-muted">
+              The mid-market rate for this route isn&apos;t available right now,
+              so providers can&apos;t be compared fairly. Try again shortly.
             </p>
           ) : ranked.length === 0 ? (
             <p className="rounded-lg border border-dashed border-line p-6 text-muted">
-              No provider we track can send {money(amount, send.currency)} on
-              this route. Try a larger amount.
+              No provider quotes are available for this route right now.
             </p>
           ) : (
-            <div className="relative">
+            <div
+              className={`relative transition-opacity ${pending ? "opacity-60" : ""}`}
+              aria-busy={pending}
+            >
               <div className={`${ROW_GRID} pb-3 text-xs text-muted sm:text-sm`}>
                 <span />
                 <span className="pr-2 text-right">
                   Mid-market{" "}
                   <span className="tabular text-ink">
-                    {money(midPayout, receive.currency)}
+                    {fmtReceive(midPayout)}
                   </span>
                 </span>
                 <span className="text-right">Recipient gets</span>
@@ -246,7 +311,7 @@ export function RemittanceCompare({ sending, receiving, providers }: Props) {
                     key={r.provider}
                     result={r}
                     x={trackX(r.netPayout)}
-                    sendCurrency={send.currency}
+                    sendCurrency={sendCurrency}
                     formatPayout={fmtReceive}
                     formatLoss={fmtLoss}
                     loss={Math.max(0, midPayout - r.netPayout)}
@@ -262,31 +327,35 @@ export function RemittanceCompare({ sending, receiving, providers }: Props) {
             terms with the provider before you send.
           </p>
 
-          <p className="rounded-md border border-dashed border-line px-4 py-3 text-sm text-muted">
-            Preview with sample rates. Countries and provider coverage are live;
-            exchange rates and fees are illustrative until live quote collection
-            is switched on.
-          </p>
+          {data?.sample && (
+            <p className="rounded-md border border-dashed border-line px-4 py-3 text-sm text-muted">
+              Preview with sample rates. Countries and provider coverage are
+              live; exchange rates and fees are illustrative until live quote
+              collection is switched on.
+            </p>
+          )}
         </section>
       </div>
 
       <aside className="contents lg:sticky lg:top-6 lg:flex lg:flex-col lg:gap-10 lg:self-start">
-        {amount > 0 && (
+        {data && mid !== null && (
           <div className="order-2 lg:order-none">
             <MidMarketCard
-              amount={amount}
+              amount={Number(data.amount)}
               mid={mid}
               midPayout={midPayout}
-              sendCurrency={send.currency}
-              receiveCurrency={receive.currency}
-              receiveCountry={receive.name}
+              sendCurrency={sendCurrency}
+              receiveCurrency={receiveCurrency}
+              receiveCountry={receiveCountry}
               formatPayout={fmtReceive}
             />
           </div>
         )}
-        <div className="order-4 lg:order-none">
-          <RateTrend base={send.currency} quote={receive.currency} />
-        </div>
+        {receiveCurrency && (
+          <div className="order-4 lg:order-none">
+            <RateTrend base={sendCurrency} quote={receiveCurrency} />
+          </div>
+        )}
       </aside>
     </div>
   );
@@ -310,6 +379,8 @@ function MidMarketCard({
   formatPayout: (n: number) => string;
 }) {
   const card = useRef<HTMLElement>(null);
+  // Currency codes (KES 257,648.63) run longer than symbols (₦408,000.00).
+  const payoutText = formatPayout(midPayout);
 
   // The page's one orchestrated entrance: the card wipes open, then the odometer rolls.
   useGSAP(
@@ -362,8 +433,9 @@ function MidMarketCard({
         {receiveCountry} becomes
       </p>
       <Odometer
-        text={formatPayout(midPayout)}
-        className="relative mt-3 font-display text-[clamp(2.4rem,9vw,4.25rem)] font-bold tracking-tight tabular"
+        text={payoutText}
+        className="relative mt-3 font-display font-bold tracking-tight tabular"
+        style={{ fontSize: payoutSize(payoutText) }}
       />
       <dl className="relative mt-6 grid grid-cols-2 gap-4 border-t border-white/20 pt-5">
         <div>
@@ -387,6 +459,15 @@ function MidMarketCard({
       </p>
     </section>
   );
+}
+
+/**
+ * Odometer font size that keeps the figure inside the card at any length: each digit is
+ * ~0.62em wide, the card's text column is ~476px on desktop and ~79vw on a phone.
+ */
+function payoutSize(text: string): string {
+  const n = Math.max(text.length, 1);
+  return `min(4.25rem, ${(476 / (n * 0.62)).toFixed(1)}px, ${(79 / (n * 0.62)).toFixed(2)}vw)`;
 }
 
 function Field({
@@ -514,6 +595,11 @@ function ResultRow({
             <span className="tabular">{money(r.marginCost, sendCurrency)}</span>
           </span>
           <span>Checked {r.ageMinutes} min ago</span>
+          {r.isStale && (
+            <span className="font-medium text-loss">
+              Rate may be out of date
+            </span>
+          )}
         </p>
       </div>
 

@@ -17,9 +17,11 @@ const DIGITS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 export function Odometer({
   text,
   className,
+  style,
 }: {
   text: string;
   className?: string;
+  style?: React.CSSProperties;
 }) {
   const root = useRef<HTMLSpanElement>(null);
   const mounted = useRef(false);
@@ -67,7 +69,11 @@ export function Odometer({
   );
 
   return (
-    <span ref={root} className={`inline-flex leading-none ${className ?? ""}`}>
+    <span
+      ref={root}
+      className={`inline-flex leading-none ${className ?? ""}`}
+      style={style}
+    >
       <span className="sr-only">{text}</span>
       {chars.map((ch, i) => {
         const pos = chars.length - 1 - i;

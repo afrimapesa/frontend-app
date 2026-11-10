@@ -6,7 +6,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { api } from "@/lib/api";
 import { rate as fmtRate } from "@/lib/format";
-import { sampleHistory } from "@/lib/sample-quotes";
 
 gsap.registerPlugin(useGSAP);
 
@@ -21,9 +20,9 @@ const PAD = { top: 16, right: 64, bottom: 28, left: 4 };
 type Series = {
   key: string; // which request (pair + range) this data answers
   points: { date: string; rate: number }[];
-  source: "live" | "sample";
+  sample: boolean; // any point is preview sample data
   derived: boolean;
-  unreachable: boolean;
+  failed: boolean; // the API could not be reached
 };
 
 /** Mid-market rate trend for one currency pair: line + crosshair tooltip + table view. */
@@ -35,38 +34,26 @@ export function RateTrend({ base, quote }: { base: string; quote: string }) {
 
   useEffect(() => {
     const controller = new AbortController();
-    const fallback = (unreachable: boolean): Series => ({
-      points: sampleHistory(
-        base,
-        quote,
-        days,
-        new Date().toISOString().slice(0, 10),
-      ),
-      key,
-      source: "sample",
-      derived: false,
-      unreachable,
-    });
     api
       .fxHistory(base, quote, days, controller.signal)
       .then((h) =>
-        setSeries(
-          h.points.length >= 2
-            ? {
-                key,
-                points: h.points.map((p) => ({
-                  date: p.date,
-                  rate: Number(p.rate),
-                })),
-                source: "live",
-                derived: h.derived,
-                unreachable: false,
-              }
-            : fallback(false),
-        ),
+        setSeries({
+          key,
+          points: h.points.map((p) => ({ date: p.date, rate: Number(p.rate) })),
+          sample: h.sample,
+          derived: h.derived,
+          failed: false,
+        }),
       )
       .catch((e: unknown) => {
-        if ((e as Error).name !== "AbortError") setSeries(fallback(true));
+        if ((e as Error).name === "AbortError") return;
+        setSeries({
+          key,
+          points: [],
+          sample: false,
+          derived: false,
+          failed: true,
+        });
       });
     return () => controller.abort();
   }, [base, quote, days, key]);
@@ -119,8 +106,17 @@ export function RateTrend({ base, quote }: { base: string; quote: string }) {
       <div
         className={`transition-opacity ${loading && series ? "opacity-50" : ""}`}
       >
-        {series ? (
+        {series && series.points.length >= 2 ? (
           <Chart points={series.points} quote={quote} />
+        ) : series ? (
+          <p
+            style={{ height: HEIGHT }}
+            className="grid place-items-center rounded-lg bg-paper px-6 text-center text-sm text-muted"
+          >
+            {series.failed
+              ? "Couldn't load the rate history. Try again in a moment."
+              : `No rate history for ${base} to ${quote} yet. It appears as rates are collected.`}
+          </p>
         ) : (
           <div
             style={{ height: HEIGHT }}
@@ -130,21 +126,23 @@ export function RateTrend({ base, quote }: { base: string; quote: string }) {
         )}
       </div>
 
-      {series?.source === "sample" && (
+      {series?.sample && series.points.length >= 2 && (
         <p className="text-xs text-muted">
-          {series.unreachable
-            ? "Couldn't reach rate history, so this is sample data."
-            : "Sample data. The real trend appears once historical rates are imported."}
+          Sample data for the preview. The real trend appears once historical
+          rates are imported.
         </p>
       )}
-      {series?.source === "live" && coveredDays < days && (
-        <p className="text-xs text-muted">
-          History so far covers {coveredDays} days; it fills in as rates are
-          collected.
-        </p>
-      )}
+      {series &&
+        !series.sample &&
+        series.points.length >= 2 &&
+        coveredDays < days && (
+          <p className="text-xs text-muted">
+            History so far covers {coveredDays} days; it fills in as rates are
+            collected.
+          </p>
+        )}
 
-      {series && (
+      {series && series.points.length > 0 && (
         <details className="text-sm">
           <summary className="cursor-pointer text-muted hover:text-ink">
             Show as table

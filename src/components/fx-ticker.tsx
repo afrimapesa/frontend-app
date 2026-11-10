@@ -5,7 +5,7 @@ import gsap from "gsap";
 import { useRef } from "react";
 
 import { rate } from "@/lib/format";
-import { sampleMidRate } from "@/lib/sample-quotes";
+import { sampleMidRate } from "@/lib/sample-rates";
 
 gsap.registerPlugin(useGSAP);
 

@@ -1,6 +1,12 @@
 import { Suspense } from "react";
 
 import { RemittanceCompare } from "@/components/remittance-compare";
+import {
+  compareKey,
+  DEFAULT_AMOUNT,
+  DEFAULT_RECEIVE,
+  DEFAULT_SEND,
+} from "@/lib/compare";
 import { api } from "@/lib/api";
 
 export default function Home() {
@@ -14,26 +20,37 @@ export default function Home() {
 }
 
 async function CompareWithData() {
-  const data = await Promise.all([
+  const countries = await Promise.all([
     api.countries("sending"),
     api.countries("receiving"),
-    api.providers(),
   ]).catch(() => null);
 
-  if (!data) {
+  if (!countries) {
     return (
       <p className="rounded-lg bg-surface p-6 text-muted">
-        Can&apos;t load countries and providers. Check that the API is running
-        on port 8000, then reload.
+        Can&apos;t load countries. Check that the API is running on port 8000,
+        then reload.
       </p>
     );
   }
-  const [sending, receiving, providers] = data;
+  const [sending, receiving] = countries;
+
+  // First comparison on the server, so the rankings render without a loading state.
+  const amount = Number(DEFAULT_AMOUNT).toFixed(2);
+  const initial = await api
+    .compare(DEFAULT_SEND, DEFAULT_RECEIVE, amount)
+    .then((data) => ({
+      key: compareKey(DEFAULT_SEND, DEFAULT_RECEIVE, amount),
+      data,
+      fetchedAt: Date.parse(data.as_of),
+    }))
+    .catch(() => null);
+
   return (
     <RemittanceCompare
       sending={sending}
       receiving={receiving}
-      providers={providers}
+      initial={initial}
     />
   );
 }

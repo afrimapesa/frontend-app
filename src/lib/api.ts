@@ -63,11 +63,41 @@ export type Provider = {
   corridors: string[];
 };
 
+export type CompareResult = {
+  rank: number;
+  provider: { slug: string; name: string; website: string };
+  fx_rate: string;
+  transfer_fee: string;
+  margin_cost: string;
+  total_cost: string;
+  total_cost_pct: string;
+  net_payout: string;
+  effective_rate: string;
+  transfer_time_minutes: number | null;
+  observed_at: string;
+  is_stale: boolean;
+};
+
+export type CompareResponse = {
+  as_of: string; // server time of the comparison; quote ages are measured from it
+  corridor: string;
+  send_currency: string;
+  receive_currency: string;
+  amount: string;
+  mid_rate: string | null;
+  mid_payout: string | null;
+  mid_observed_at: string | null;
+  providers_on_route: number;
+  sample: boolean; // any figure is preview sample data
+  results: CompareResult[];
+};
+
 export type FxHistory = {
   base: string;
   quote: string;
   days: number;
   derived: boolean; // computed as a cross rate through USD
+  sample: boolean; // any point is preview sample data
   points: { date: string; rate: string }[];
 };
 
@@ -78,6 +108,16 @@ export const api = {
     get<Country[]>(`/v1/reference/countries/${role ? `?role=${role}` : ""}`),
   corridors: () => get<Corridor[]>("/v1/reference/corridors/"),
   providers: () => get<Provider[]>("/v1/reference/providers/"),
+  compare: (
+    send: string,
+    receive: string,
+    amount: string,
+    signal?: AbortSignal,
+  ) =>
+    get<CompareResponse>(
+      `/v1/remittance/compare/?send=${send}&receive=${receive}&amount=${amount}`,
+      { signal },
+    ),
   fxHistory: (
     base: string,
     quote: string,
