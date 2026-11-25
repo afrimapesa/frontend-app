@@ -188,7 +188,8 @@ export const api = {
     signal?: AbortSignal,
   ) =>
     get<CompareResponse>(
-      `/v1/remittance/compare/?send=${send}&receive=${receive}&amount=${amount}`,
+      // all=true: every provider on the route; the page shows the top 5 until expanded.
+      `/v1/remittance/compare/?send=${send}&receive=${receive}&amount=${amount}&all=true`,
       { signal },
     ),
   fxHistory: (

@@ -14,8 +14,8 @@ const RANGES = [
   { days: 90, label: "3M" },
 ] as const;
 
-const HEIGHT = 220;
-const PAD = { top: 16, right: 64, bottom: 28, left: 4 };
+const HEIGHT = 140;
+const PAD = { top: 10, right: 60, bottom: 24, left: 4 };
 
 type Series = {
   key: string; // which request (pair + range) this data answers
@@ -66,11 +66,14 @@ export function RateTrend({ base, quote }: { base: string; quote: string }) {
   return (
     <section
       aria-labelledby="trend-heading"
-      className="flex flex-col gap-4 rounded-xl border border-line bg-surface p-5 sm:p-6"
+      className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4"
     >
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
         <div>
-          <h2 id="trend-heading" className="font-display text-lg font-semibold">
+          <h2
+            id="trend-heading"
+            className="font-display text-base font-semibold"
+          >
             {base} to {quote} mid-market rate
           </h2>
           {first && last && (
@@ -143,7 +146,7 @@ export function RateTrend({ base, quote }: { base: string; quote: string }) {
         )}
 
       {series && series.points.length > 0 && (
-        <details className="text-sm">
+        <details className="text-xs">
           <summary className="cursor-pointer text-muted hover:text-ink">
             Show as table
           </summary>
@@ -199,7 +202,7 @@ function Chart({
   const geo = useMemo(() => {
     if (width === 0 || points.length < 2) return null;
     const rates = points.map((p) => p.rate);
-    const ticks = niceTicks(Math.min(...rates), Math.max(...rates), 4);
+    const ticks = niceTicks(Math.min(...rates), Math.max(...rates), 3);
     const [lo, hi] = [ticks[0], ticks.at(-1)!];
     const innerW = width - PAD.left - PAD.right;
     const innerH = HEIGHT - PAD.top - PAD.bottom;

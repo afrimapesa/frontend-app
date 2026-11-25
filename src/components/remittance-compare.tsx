@@ -23,14 +23,23 @@ import { type RankedQuote, toRankedQuote } from "@/lib/remittance";
 
 gsap.registerPlugin(useGSAP, Flip);
 
+const TOP_N = 5;
+
 type Props = {
   sending: Country[];
   receiving: Country[];
   /** First comparison, fetched on the server so the rankings show without a loading state. */
   initial: LoadedComparison | null;
+  /** Rendered under the rate trend (top news, a small ad); streamed in by the page. */
+  aside?: React.ReactNode;
 };
 
-export function RemittanceCompare({ sending, receiving, initial }: Props) {
+export function RemittanceCompare({
+  sending,
+  receiving,
+  initial,
+  aside,
+}: Props) {
   const [amountText, setAmountText] = useState(DEFAULT_AMOUNT);
   const [sendCode, setSendCode] = useState(
     sending.find((c) => c.code === DEFAULT_SEND)?.code ?? sending[0].code,
@@ -41,6 +50,7 @@ export function RemittanceCompare({ sending, receiving, initial }: Props) {
   );
   const [loaded, setLoaded] = useState<LoadedComparison | null>(initial);
   const [failedKey, setFailedKey] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   const send = sending.find((c) => c.code === sendCode)!;
   const amount = Number(amountText.replace(/,/g, ""));
@@ -106,7 +116,10 @@ export function RemittanceCompare({ sending, receiving, initial }: Props) {
   const mid = data?.mid_rate ? Number(data.mid_rate) : null;
   const midPayout = data?.mid_payout ? Number(data.mid_payout) : 0;
   const servingCount = data?.providers_on_route ?? 0;
-  const order = ranked.map((r) => r.provider).join(",");
+  // The API returns every priced provider; the top 5 show until the list is expanded.
+  const shown = showAll ? ranked : ranked.slice(0, TOP_N);
+  const hiddenCount = ranked.length - TOP_N;
+  const order = shown.map((r) => r.provider).join(",");
 
   useGSAP(
     () => {
@@ -167,7 +180,7 @@ export function RemittanceCompare({ sending, receiving, initial }: Props) {
   );
   // Track scale: the finish line is the mid-market payout; the worst provider shown sits
   // about a quarter of the way along, so differences between providers stay visible.
-  const worstGap = Math.max(...ranked.map((r) => midPayout - r.netPayout), 0);
+  const worstGap = Math.max(...shown.map((r) => midPayout - r.netPayout), 0);
   const span = Math.max(worstGap * 1.35, midPayout * 0.001, 0.01);
   const trackX = (payout: number) =>
     Math.min(100, Math.max(2, (1 - (midPayout - payout) / span) * 100));
@@ -175,21 +188,22 @@ export function RemittanceCompare({ sending, receiving, initial }: Props) {
   return (
     // Mobile order: form, mid-market card, rankings, trend. Desktop: two columns, with the
     // wrappers switching from `contents` (children join the outer flow) to flex columns.
-    <div className="flex flex-col gap-10 lg:grid lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:gap-12 xl:gap-16">
-      <div className="contents lg:flex lg:flex-col lg:gap-12">
-        <div className="order-1 flex flex-col gap-6 lg:order-none">
-          <header className="flex flex-col gap-2">
-            <h1 className="font-display text-[clamp(1.9rem,4vw,2.9rem)] leading-[1.1] font-bold tracking-tight text-balance">
+    // On phones the header, form and card are kept compact so the card shows in the first screen.
+    <div className="flex flex-col gap-5 sm:gap-8 lg:grid lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:gap-10 xl:gap-14">
+      <div className="contents lg:flex lg:flex-col lg:gap-8">
+        <div className="order-1 flex flex-col gap-4 lg:order-none">
+          <header className="flex flex-col gap-1.5 sm:gap-2">
+            <h1 className="font-display text-[clamp(1.6rem,3.4vw,2.5rem)] leading-[1.1] font-bold tracking-tight text-balance">
               Get the most for your money to Africa
             </h1>
-            <p className="text-muted sm:text-lg">
+            <p className="text-sm text-muted sm:text-base">
               Compare exchange rates and fees from {servingCount || 15}{" "}
               providers, ranked by what your recipient actually receives.
             </p>
           </header>
 
           <form
-            className="grid grid-cols-[minmax(0,1fr)] gap-5 rounded-xl border border-line bg-surface p-5 sm:grid-cols-2 sm:p-6"
+            className="grid grid-cols-2 gap-3 rounded-xl border border-line bg-surface p-3.5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)] sm:gap-4 sm:p-4"
             onSubmit={(e) => e.preventDefault()}
           >
             <Field id="send" label="Sending from">
@@ -203,6 +217,8 @@ export function RemittanceCompare({ sending, receiving, initial }: Props) {
                 options={sending.map((c) => ({
                   value: c.code,
                   label: `${c.name} (${c.currency})`,
+                  name: c.name,
+                  currency: c.currency,
                 }))}
               />
             </Field>
@@ -217,10 +233,16 @@ export function RemittanceCompare({ sending, receiving, initial }: Props) {
                 options={receiving.map((c) => ({
                   value: c.code,
                   label: `${c.name} (${c.currency})`,
+                  name: c.name,
+                  currency: c.currency,
                 }))}
               />
             </Field>
-            <Field id="amount" label="Amount to send" className="sm:col-span-2">
+            <Field
+              id="amount"
+              label="Amount to send"
+              className="col-span-2 sm:col-span-1"
+            >
               <div className="flex items-center rounded-lg border border-line bg-surface focus-within:border-ink focus-within:ring-1 focus-within:ring-ink">
                 <input
                   id="amount"
@@ -232,9 +254,9 @@ export function RemittanceCompare({ sending, receiving, initial }: Props) {
                     capture();
                     setAmountText(e.target.value.replace(/[^\d.,]/g, ""));
                   }}
-                  className="tabular min-w-0 flex-1 bg-transparent px-4 py-3 font-display text-2xl font-semibold outline-none placeholder:text-base placeholder:font-normal placeholder:text-muted"
+                  className="tabular min-w-0 flex-1 bg-transparent py-2 pl-3 font-display text-lg font-semibold outline-none sm:pl-4 placeholder:text-base placeholder:font-normal placeholder:text-muted"
                 />
-                <span className="px-4 text-sm font-semibold text-muted">
+                <span className="px-3 text-sm font-semibold text-muted">
                   {send.currency}
                 </span>
               </div>
@@ -251,12 +273,12 @@ export function RemittanceCompare({ sending, receiving, initial }: Props) {
               id="results-heading"
               className="font-display text-xl font-semibold"
             >
-              Top provider rankings
+              {showAll ? "All provider rankings" : "Top provider rankings"}
             </h2>
             {ranked.length > 0 && (
               <p className="text-sm text-muted">
-                Top {ranked.length} of {servingCount}, ranked by what your
-                recipient gets
+                {showAll ? "All" : "Top"} {shown.length} of {servingCount},
+                ranked by what your recipient gets
               </p>
             )}
           </div>
@@ -287,37 +309,69 @@ export function RemittanceCompare({ sending, receiving, initial }: Props) {
             </p>
           ) : (
             <div
-              className={`relative transition-opacity ${pending ? "opacity-60" : ""}`}
+              className={`transition-opacity ${pending ? "opacity-60" : ""}`}
               aria-busy={pending}
             >
-              <div className={`${ROW_GRID} pb-3 text-xs text-muted sm:text-sm`}>
-                <span />
-                <span className="pr-2 text-right">
-                  Mid-market{" "}
-                  <span className="tabular text-ink">
-                    {fmtReceive(midPayout)}
+              {/* The finish line spans this box only, not the "View all" button below. */}
+              <div className="relative">
+                <div
+                  className={`${ROW_GRID} pb-3 text-xs text-muted sm:text-sm`}
+                >
+                  <span />
+                  <span className="pr-2 text-right">
+                    Mid-market{" "}
+                    <span className="tabular text-ink">
+                      {fmtReceive(midPayout)}
+                    </span>
                   </span>
-                </span>
-                <span className="text-right">Recipient gets</span>
+                  <span className="text-right">Recipient gets</span>
+                </div>
+                {/* The finish line: one dashed rule through every track. */}
+                <span
+                  aria-hidden
+                  className={`pointer-events-none absolute top-7 bottom-0 border-r-2 border-dashed border-ink/35 ${FINISH_LINE}`}
+                />
+                <ol
+                  ref={list}
+                  id="provider-list"
+                  className="border-b border-line"
+                >
+                  {shown.map((r) => (
+                    <ResultRow
+                      key={r.provider}
+                      result={r}
+                      x={trackX(r.netPayout)}
+                      sendCurrency={sendCurrency}
+                      formatPayout={fmtReceive}
+                      formatLoss={fmtLoss}
+                      loss={Math.max(0, midPayout - r.netPayout)}
+                    />
+                  ))}
+                </ol>
               </div>
-              {/* The finish line: one dashed rule through every track. */}
-              <span
-                aria-hidden
-                className={`pointer-events-none absolute top-7 bottom-0 border-r-2 border-dashed border-ink/35 ${FINISH_LINE}`}
-              />
-              <ol ref={list} className="border-b border-line">
-                {ranked.map((r) => (
-                  <ResultRow
-                    key={r.provider}
-                    result={r}
-                    x={trackX(r.netPayout)}
-                    sendCurrency={sendCurrency}
-                    formatPayout={fmtReceive}
-                    formatLoss={fmtLoss}
-                    loss={Math.max(0, midPayout - r.netPayout)}
-                  />
-                ))}
-              </ol>
+              {hiddenCount > 0 && (
+                <button
+                  type="button"
+                  aria-expanded={showAll}
+                  aria-controls="provider-list"
+                  onClick={() => {
+                    capture();
+                    setShowAll((v) => !v);
+                  }}
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-line bg-surface px-4 py-3 text-sm font-semibold transition-colors hover:border-ink hover:bg-ink hover:text-paper"
+                >
+                  {showAll
+                    ? "Show top 5 only"
+                    : `View all ${ranked.length} providers`}
+                  <svg
+                    aria-hidden
+                    viewBox="0 0 12 8"
+                    className={`w-2.5 fill-current transition-transform ${showAll ? "rotate-180" : ""}`}
+                  >
+                    <path d="M6 8 0 0h12z" />
+                  </svg>
+                </button>
+              )}
             </div>
           )}
 
@@ -337,7 +391,7 @@ export function RemittanceCompare({ sending, receiving, initial }: Props) {
         </section>
       </div>
 
-      <aside className="contents lg:sticky lg:top-6 lg:flex lg:flex-col lg:gap-10 lg:self-start">
+      <aside className="contents lg:flex lg:flex-col lg:gap-6">
         {data && mid !== null && (
           <div className="order-2 lg:order-none">
             <MidMarketCard
@@ -356,6 +410,7 @@ export function RemittanceCompare({ sending, receiving, initial }: Props) {
             <RateTrend base={sendCurrency} quote={receiveCurrency} />
           </div>
         )}
+        {aside && <div className="order-5 lg:order-none">{aside}</div>}
       </aside>
     </div>
   );
@@ -404,12 +459,12 @@ function MidMarketCard({
     <section
       ref={card}
       aria-live="polite"
-      className="relative overflow-hidden rounded-2xl bg-black px-6 py-7 text-white sm:px-8 sm:py-8"
+      className="relative overflow-hidden rounded-2xl bg-black px-5 py-4 text-white sm:px-6"
     >
       <svg
         aria-hidden
         viewBox="0 0 200 200"
-        className="pointer-events-none absolute -top-20 -right-20 hidden size-72 text-white opacity-[0.09] sm:block"
+        className="pointer-events-none absolute -top-14 -right-14 hidden size-40 text-white opacity-[0.09] sm:block"
       >
         <circle
           cx="80"
@@ -428,34 +483,24 @@ function MidMarketCard({
           strokeWidth="2"
         />
       </svg>
-      <p className="relative text-white/75">
+      <p className="relative text-xs text-white/70 sm:text-sm">
         At the mid-market rate, {money(amount, sendCurrency)} sent to{" "}
         {receiveCountry} becomes
       </p>
-      <Odometer
-        text={payoutText}
-        className="relative mt-3 font-display font-bold tracking-tight tabular"
-        style={{ fontSize: payoutSize(payoutText) }}
-      />
-      <dl className="relative mt-6 grid grid-cols-2 gap-4 border-t border-white/20 pt-5">
-        <div>
-          <dt className="text-xs text-white/65 sm:text-sm">Mid-market rate</dt>
-          <dd className="tabular mt-1 font-semibold">
-            1 {sendCurrency} = {rate(mid)} {receiveCurrency}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs text-white/65 sm:text-sm">
-            Mid-market payout
-          </dt>
-          <dd className="tabular mt-1 font-semibold">
-            {formatPayout(midPayout)}
-          </dd>
-        </div>
-      </dl>
-      <p className="relative mt-4 text-sm text-white/75">
-        The mid-market rate is the rate banks trade currencies at. Providers add
-        fees and a margin on top, so your recipient receives less than this.
+      <div className="relative mt-1 flex flex-wrap items-baseline justify-between gap-x-4">
+        <Odometer
+          text={payoutText}
+          className="font-display font-bold tracking-tight tabular"
+          style={{ fontSize: payoutSize(payoutText) }}
+        />
+        <p className="tabular text-sm font-semibold text-white/90">
+          <span className="sr-only">Mid-market rate: </span>1 {sendCurrency} ={" "}
+          {rate(mid)} {receiveCurrency}
+        </p>
+      </div>
+      <p className="relative mt-2 border-t border-white/15 pt-2 text-xs text-white/60">
+        The rate banks trade currencies at. Providers add fees and a margin, so
+        your recipient receives less.
       </p>
     </section>
   );
@@ -463,11 +508,12 @@ function MidMarketCard({
 
 /**
  * Odometer font size that keeps the figure inside the card at any length: each digit is
- * ~0.62em wide, the card's text column is ~476px on desktop and ~79vw on a phone.
+ * ~0.62em wide; the figure shares its row with the rate on desktop (~420px) and gets ~82vw on a phone.
+ * Capped lower on phones (clamp) so the card stays short enough to sit in the first screen.
  */
 function payoutSize(text: string): string {
   const n = Math.max(text.length, 1);
-  return `min(4.25rem, ${(476 / (n * 0.62)).toFixed(1)}px, ${(79 / (n * 0.62)).toFixed(2)}vw)`;
+  return `min(clamp(2rem, 6vw, 2.6rem), ${(420 / (n * 0.62)).toFixed(1)}px, ${(82 / (n * 0.62)).toFixed(2)}vw)`;
 }
 
 function Field({
@@ -482,14 +528,22 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className={`flex flex-col gap-1.5 ${className}`}>
-      <label htmlFor={id} className="text-sm font-semibold">
+    <div className={`flex flex-col gap-1 ${className}`}>
+      <label htmlFor={id} className="text-xs font-semibold sm:text-sm">
         {label}
       </label>
       {children}
     </div>
   );
 }
+
+// Phone-width names for the half-row selects (the open picker still lists full names).
+const SHORT_NAMES: Record<string, string> = {
+  "United States": "USA",
+  "United Kingdom": "UK",
+  "European Union": "EU",
+  "South Africa": "S. Africa",
+};
 
 function Select({
   id,
@@ -500,15 +554,34 @@ function Select({
   id: string;
   value: string;
   onChange: (value: string) => void;
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; name: string; currency: string }[];
 }) {
+  const current = options.find((o) => o.value === value) ?? options[0];
+  // The native select (transparent, on top) keeps the platform picker; the face underneath
+  // truncates the country name but always shows the currency, so it fits half a phone row.
   return (
-    <div className="relative">
+    <div className="relative flex items-center gap-2 rounded-lg border border-line bg-surface py-2.5 pr-8 pl-3 font-medium focus-within:border-ink focus-within:ring-1 focus-within:ring-ink">
+      <span aria-hidden className="min-w-0 flex-1 truncate">
+        <span className="sm:hidden">
+          {SHORT_NAMES[current?.name ?? ""] ?? current?.name}
+        </span>
+        <span className="hidden sm:inline">{current?.name}</span>
+      </span>
+      <span aria-hidden className="shrink-0 text-sm font-semibold text-muted">
+        {current?.currency}
+      </span>
+      <svg
+        aria-hidden
+        viewBox="0 0 12 8"
+        className="pointer-events-none absolute top-1/2 right-3 w-2.5 -translate-y-1/2 fill-current text-muted"
+      >
+        <path d="M6 8 0 0h12z" />
+      </svg>
       <select
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full cursor-pointer appearance-none rounded-lg border border-line bg-surface py-3 pr-10 pl-4 font-medium outline-none focus:border-ink focus:ring-1 focus:ring-ink"
+        className="absolute inset-0 size-full cursor-pointer appearance-none opacity-0"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
@@ -516,22 +589,15 @@ function Select({
           </option>
         ))}
       </select>
-      <svg
-        aria-hidden
-        viewBox="0 0 12 8"
-        className="pointer-events-none absolute top-1/2 right-4 w-2.5 -translate-y-1/2 fill-current text-muted"
-      >
-        <path d="M6 8 0 0h12z" />
-      </svg>
     </div>
   );
 }
 
 // Rank | provider + track | payout. The track's right edge is the finish line.
 const ROW_GRID =
-  "grid grid-cols-[1.5rem_minmax(0,1fr)_8.75rem] gap-x-3 sm:grid-cols-[2.25rem_minmax(0,1fr)_10.5rem] sm:gap-x-5";
+  "grid grid-cols-[1.25rem_minmax(0,1fr)_7.5rem] gap-x-3 sm:grid-cols-[1.75rem_minmax(0,1fr)_9rem] sm:gap-x-4";
 const FINISH_LINE =
-  "right-[calc(8.75rem+0.75rem)] sm:right-[calc(10.5rem+1.25rem)]";
+  "right-[calc(7.5rem+0.75rem)] sm:right-[calc(9rem+1rem)]";
 
 function ResultRow({
   result: r,
@@ -552,16 +618,16 @@ function ResultRow({
     <li
       data-flip-id={r.provider}
       data-x={x.toFixed(2)}
-      className={`${ROW_GRID} items-start border-t border-line py-5 sm:py-6`}
+      className={`${ROW_GRID} items-start border-t border-line py-3.5 sm:py-4`}
     >
-      <span className="font-display tabular text-2xl leading-none font-semibold text-ink/30 sm:text-3xl">
+      <span className="font-display tabular text-lg leading-none font-semibold text-ink/30 sm:text-xl">
         {r.rank}
       </span>
 
-      <div className="flex min-w-0 flex-col gap-3">
-        <div className="flex items-center gap-3">
-          <ProviderLogo slug={r.provider} name={r.name} size={32} />
-          <p className="font-display text-base leading-tight font-semibold sm:text-lg">
+      <div className="flex min-w-0 flex-col gap-2">
+        <div className="flex items-center gap-2.5">
+          <ProviderLogo slug={r.provider} name={r.name} size={26} />
+          <p className="font-display text-sm leading-tight font-semibold sm:text-base">
             {r.name}
           </p>
         </div>
@@ -582,11 +648,11 @@ function ResultRow({
             className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 transition-[left] duration-500"
             style={{ left: `${x}%` }}
           >
-            <span className="relative block size-3.5 rounded-full border-2 border-ink bg-paper" />
+            <span className="relative block size-3 rounded-full border-2 border-ink bg-paper" />
           </span>
         </div>
 
-        <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted sm:text-sm">
+        <p className="flex flex-wrap gap-x-3 gap-y-0.5 text-[0.7rem] text-muted sm:text-xs">
           <span>{duration(r.transferMinutes)}</span>
           <span>
             Fee{" "}
@@ -607,12 +673,12 @@ function ResultRow({
         <AnimatedNumber
           value={r.netPayout}
           format={formatPayout}
-          className="font-display tabular text-base leading-tight font-semibold sm:text-xl"
+          className="font-display tabular text-sm leading-tight font-semibold sm:text-base"
         />
         <AnimatedNumber
           value={loss}
           format={formatLoss}
-          className="tabular text-xs font-medium text-loss sm:text-sm"
+          className="tabular text-[0.7rem] font-medium text-loss sm:text-xs"
         />
         {r.website && (
           <a
@@ -620,7 +686,7 @@ function ResultRow({
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`Go to ${r.name} (opens in a new tab)`}
-            className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-semibold transition-colors hover:border-ink hover:bg-ink hover:text-paper sm:text-sm"
+            className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-line px-2.5 py-1 text-xs font-semibold transition-colors hover:border-ink hover:bg-ink hover:text-paper"
           >
             <span className="sm:hidden">Visit</span>
             <span className="hidden whitespace-nowrap sm:inline">
@@ -629,7 +695,7 @@ function ResultRow({
             <svg
               aria-hidden
               viewBox="0 0 16 16"
-              className="size-3.5 fill-none stroke-current"
+              className="size-3 fill-none stroke-current"
               strokeWidth="1.8"
             >
               <path

@@ -3,7 +3,7 @@
 
 import type { CompareResponse } from "./api";
 
-export const DEFAULT_SEND = "GB";
+export const DEFAULT_SEND = "US";
 export const DEFAULT_RECEIVE = "NG";
 export const DEFAULT_AMOUNT = "200";
 export const MAX_AMOUNT = 1_000_000;
