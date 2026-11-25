@@ -10,18 +10,18 @@ import { rate as fmtRate } from "@/lib/format";
 gsap.registerPlugin(useGSAP);
 
 const RANGES = [
-  { days: 30, label: "1M" },
-  { days: 90, label: "3M" },
+  { days: 30, label: "1M", long: "month" },
+  { days: 90, label: "3M", long: "3 months" },
 ] as const;
 
 const HEIGHT = 140;
-const PAD = { top: 10, right: 60, bottom: 24, left: 4 };
+// Y-axis labels on the left; the scale fits the data (it never starts at zero).
+const PAD = { top: 10, right: 8, bottom: 24, left: 56 };
 
 type Series = {
   key: string; // which request (pair + range) this data answers
   points: { date: string; rate: number }[];
   sample: boolean; // any point is preview sample data
-  derived: boolean;
   failed: boolean; // the API could not be reached
 };
 
@@ -41,7 +41,6 @@ export function RateTrend({ base, quote }: { base: string; quote: string }) {
           key,
           points: h.points.map((p) => ({ date: p.date, rate: Number(p.rate) })),
           sample: h.sample,
-          derived: h.derived,
           failed: false,
         }),
       )
@@ -51,7 +50,6 @@ export function RateTrend({ base, quote }: { base: string; quote: string }) {
           key,
           points: [],
           sample: false,
-          derived: false,
           failed: true,
         });
       });
@@ -82,8 +80,7 @@ export function RateTrend({ base, quote }: { base: string; quote: string }) {
                 {change >= 0 ? "+" : "−"}
                 {Math.abs(change * 100).toFixed(2)}%
               </span>{" "}
-              over the last {coveredDays} days
-              {series?.derived && " (calculated via USD)"}
+              over the past {RANGES.find((r) => r.days === days)?.long}
             </p>
           )}
         </div>
@@ -302,9 +299,10 @@ function Chart({
                   strokeWidth={1}
                 />
                 <text
-                  x={PAD.left + geo.innerW + 8}
+                  x={PAD.left - 8}
                   y={geo.y(t)}
                   dy="0.35em"
+                  textAnchor="end"
                   className="fill-muted text-[11px] tabular"
                 >
                   {compact(t)}

@@ -186,7 +186,7 @@ export function RemittanceCompare({
     Math.min(100, Math.max(2, (1 - (midPayout - payout) / span) * 100));
 
   return (
-    // Mobile order: form, mid-market card, rankings, trend. Desktop: two columns, with the
+    // Mobile order: form, rankings, mid-market card, trend, news. Desktop: two columns, with the
     // wrappers switching from `contents` (children join the outer flow) to flex columns.
     // On phones the header, form and card are kept compact so the card shows in the first screen.
     <div className="flex flex-col gap-5 sm:gap-8 lg:grid lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:gap-10 xl:gap-14">
@@ -197,8 +197,8 @@ export function RemittanceCompare({
               Get the most for your money to Africa
             </h1>
             <p className="text-sm text-muted sm:text-base">
-              Compare exchange rates and fees from {servingCount || 15}{" "}
-              providers, ranked by what your recipient actually receives.
+              Compare exchange rates and fees from money transfer providers,
+              ranked by what your recipient actually receives.
             </p>
           </header>
 
@@ -214,7 +214,7 @@ export function RemittanceCompare({
                   capture();
                   setSendCode(v);
                 }}
-                options={sending.map((c) => ({
+                options={sortSending(sending).map((c) => ({
                   value: c.code,
                   label: `${c.name} (${c.currency})`,
                   name: c.name,
@@ -266,7 +266,7 @@ export function RemittanceCompare({
 
         <section
           aria-labelledby="results-heading"
-          className="order-3 flex flex-col gap-5 lg:order-none"
+          className="order-2 flex flex-col gap-5 lg:order-none"
         >
           <div>
             <h2
@@ -393,7 +393,7 @@ export function RemittanceCompare({
 
       <aside className="contents lg:flex lg:flex-col lg:gap-6">
         {data && mid !== null && (
-          <div className="order-2 lg:order-none">
+          <div className="order-3 lg:order-none">
             <MidMarketCard
               amount={Number(data.amount)}
               mid={mid}
@@ -537,6 +537,16 @@ function Field({
   );
 }
 
+// Main sending markets first, then the rest alphabetically (as the API returns them).
+const SENDING_FIRST = ["US", "GB"];
+function sortSending(countries: Country[]): Country[] {
+  const rank = (c: Country) => {
+    const i = SENDING_FIRST.indexOf(c.code);
+    return i === -1 ? SENDING_FIRST.length : i;
+  };
+  return [...countries].sort((a, b) => rank(a) - rank(b));
+}
+
 // Phone-width names for the half-row selects (the open picker still lists full names).
 const SHORT_NAMES: Record<string, string> = {
   "United States": "USA",
@@ -596,8 +606,7 @@ function Select({
 // Rank | provider + track | payout. The track's right edge is the finish line.
 const ROW_GRID =
   "grid grid-cols-[1.25rem_minmax(0,1fr)_7.5rem] gap-x-3 sm:grid-cols-[1.75rem_minmax(0,1fr)_9rem] sm:gap-x-4";
-const FINISH_LINE =
-  "right-[calc(7.5rem+0.75rem)] sm:right-[calc(9rem+1rem)]";
+const FINISH_LINE = "right-[calc(7.5rem+0.75rem)] sm:right-[calc(9rem+1rem)]";
 
 function ResultRow({
   result: r,
