@@ -80,3 +80,67 @@ body {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
+
+/* ---- About page and footer ------------------------------------------------------- */
+
+/* Night panels (hero, footer) stay dark in both themes. */
+:root {
+  --night: #061427;
+  --night-2: #0b2142;
+}
+
+/* Dotted grid that fades out towards the edges. */
+.dot-grid {
+  background-image: radial-gradient(
+    rgb(255 255 255 / 0.13) 1px,
+    transparent 1px
+  );
+  background-size: 22px 22px;
+  mask-image: radial-gradient(
+    ellipse 80% 70% at 60% 45%,
+    #000 30%,
+    transparent 75%
+  );
+}
+
+/* Cursor-following glow on cards (--mx/--my set by script). */
+.spotlight {
+  background:
+    radial-gradient(
+      420px circle at var(--mx, -500px) var(--my, -500px),
+      color-mix(in srgb, var(--accent) 16%, transparent),
+      transparent 60%
+    ),
+    var(--surface);
+}
+
+/* Rotating gradient border. */
+@property --spin {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+.spin-border {
+  background:
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    conic-gradient(
+        from var(--spin),
+        var(--accent),
+        #3b82f6,
+        transparent 40%,
+        var(--accent)
+      )
+      border-box;
+  border: 1.5px solid transparent;
+  animation: spin-border 6s linear infinite;
+}
+@keyframes spin-border {
+  to {
+    --spin: 360deg;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spin-border {
+    animation: none;
+  }
+}

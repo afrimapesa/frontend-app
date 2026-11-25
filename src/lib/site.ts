@@ -22,3 +22,14 @@ export const SOCIAL_LINKS = [
       "https://www.facebook.com/profile.php?id=61570738943438",
   },
 ] as const;
+
+/** Partners shown on /about. Empty until the first partnership is signed; the page then
+ *  shows a logo grid instead of the "open to partners" panel. Logos go in public/partners/. */
+export type Partner = {
+  name: string;
+  kind: "Money transfer" | "Bank" | "Data" | "Media" | "Other";
+  logo: string; // e.g. "/partners/acme.png"
+  url: string;
+};
+
+export const PARTNERS: Partner[] = [];

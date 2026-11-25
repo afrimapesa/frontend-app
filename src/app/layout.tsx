@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { FxTicker } from "@/components/fx-ticker";
+import { SiteFooter } from "@/components/site-footer";
 import { SiteNav } from "@/components/site-nav";
 
 // Fonts are self-hosted (bundled from npm), so builds never depend on Google Fonts.
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <div id="main" className="flex flex-1 flex-col">
           {children}
         </div>
+        <SiteFooter />
       </body>
     </html>
   );

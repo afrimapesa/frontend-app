@@ -17,6 +17,7 @@ export const NAV_LINKS = [
   { href: "/bank-rates", label: "Save money" },
   { href: "/bonds", label: "Invest in bonds" },
   { href: "/insights", label: "News & insights" },
+  { href: "/about", label: "About" },
 ] as const;
 
 export function SiteNav() {
@@ -25,11 +26,11 @@ export function SiteNav() {
     <header className="relative z-40 border-b border-line bg-paper">
       <nav
         aria-label="Main"
-        className="mx-auto flex h-16 w-full max-w-[90rem] items-center justify-between gap-6 px-4 sm:px-6 lg:px-10"
+        className="mx-auto flex h-[4.25rem] w-full max-w-[90rem] sm:h-[4.5rem] items-center justify-between gap-6 px-4 sm:px-6 lg:px-10"
       >
         <Link
           href="/"
-          className="flex items-center gap-2.5 font-display text-xl font-bold tracking-[0.08em]"
+          className="flex shrink-0 items-center gap-3 font-display text-[1.375rem] font-bold tracking-[0.08em] sm:text-2xl"
         >
           <Mark />
           {BRAND}
@@ -56,7 +57,7 @@ function NavItems({ activeIndex }: { activeIndex: number }) {
   return (
     <div className="flex items-center gap-4">
       <DesktopLinks activeIndex={activeIndex} />
-      <SocialLinks className="hidden border-l border-line pl-3 md:flex" />
+      <SocialLinks className="hidden border-l border-line pl-3 lg:flex" />
       <MobileMenu activeIndex={activeIndex} />
     </div>
   );
@@ -68,10 +69,10 @@ function Mark() {
     <Image
       src="/brand/afrimapesa-mark.png"
       alt=""
-      width={36}
-      height={36}
+      width={44}
+      height={44}
       priority
-      className="size-9 rounded-lg"
+      className="size-10 rounded-lg sm:size-11"
     />
   );
 }
@@ -118,7 +119,7 @@ function DesktopLinks({ activeIndex }: { activeIndex: number }) {
   return (
     <ul
       ref={list}
-      className="relative hidden items-center md:flex"
+      className="relative hidden items-center lg:flex"
       onMouseLeave={() => moveTo(activeIndex)}
       onBlur={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget)) moveTo(activeIndex);
@@ -136,7 +137,7 @@ function DesktopLinks({ activeIndex }: { activeIndex: number }) {
             aria-current={i === activeIndex ? "page" : undefined}
             onMouseEnter={() => moveTo(i)}
             onFocus={() => moveTo(i)}
-            className="block rounded-full px-4 py-2 text-sm font-medium text-muted transition-colors hover:text-ink aria-[current=page]:text-ink"
+            className="block rounded-full px-4 py-2 text-sm font-medium whitespace-nowrap text-muted transition-colors hover:text-ink aria-[current=page]:text-ink"
           >
             {link.label}
           </Link>
@@ -206,7 +207,7 @@ function MobileMenu({ activeIndex }: { activeIndex: number }) {
   }, [open]);
 
   return (
-    <div ref={scope} className="md:hidden">
+    <div ref={scope} className="lg:hidden">
       <button
         ref={button}
         type="button"
